@@ -1,0 +1,31 @@
+Compiler x86_64-w64-mingw32-gcc
+Assembly GoldenDecoder
+.Run
+
+BuildDirectory        Build/%Mode
+
+if mode == release
+{
+    SharedCompilerFlags -O3
+}
+if mode == debug 
+{
+    SharedCompilerFlags -O0 -g3
+    SharedLinkerFlags -g3
+    Compiler.Defines _DEBUG
+}
+
+SourceFiles.Exclude     Entry.c Entry-V2.c
+
+Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
+Linker.Flags            $SharedLinkerFlags
+Compiler.Includes       . Libraries
+Libraries               RaylibS gdi32 winmm
+Library.Paths           Libraries
+
+PostBuild.Copy          resources/golden2x-32.wav $(BuildDirectory)/resources
+PostBuild.Copy          resources/golden.wav $(BuildDirectory)/resources
+
+Assert.Platform          Windows
+
+option.mode(Debug Release)
