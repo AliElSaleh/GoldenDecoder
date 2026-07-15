@@ -25,8 +25,14 @@ Compiler.Includes       . Libraries
 Libraries               RaylibS gdi32 winmm
 Library.Paths           Libraries
 
-PostBuild.Copy(if_not_exist) resources/golden2x-32.wav $(BuildDirectory)/resources
-PostBuild.Copy(if_not_exist) resources/golden.wav $(BuildDirectory)/resources
+PostBuild
+{
+    Copy(if_not_exist) resources/golden2x-32.wav $(BuildDirectory)/resources
+    Copy(if_not_exist) resources/golden.wav $(BuildDirectory)/resources
+
+    Copy(if_not_exist) resources/$(Icon).ico $(BuildDirectory)/resources/$(Icon).ico
+    Copy(if_not_exist) resources/$(Icon).png $(BuildDirectory)/resources/$(Icon).png
+}
 
 Assert.Platform          Windows
 
