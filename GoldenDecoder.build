@@ -2,6 +2,8 @@ Compiler x86_64-w64-mingw32-gcc
 Assembly GoldenDecoder
 .Run
 
+Icon Voyager_Golden_Record
+
 BuildDirectory        Build/%Mode
 
 if mode == release
@@ -23,8 +25,8 @@ Compiler.Includes       . Libraries
 Libraries               RaylibS gdi32 winmm
 Library.Paths           Libraries
 
-PostBuild.Copy          resources/golden2x-32.wav $(BuildDirectory)/resources
-PostBuild.Copy          resources/golden.wav $(BuildDirectory)/resources
+PostBuild.Copy(if_not_exist) resources/golden2x-32.wav $(BuildDirectory)/resources
+PostBuild.Copy(if_not_exist) resources/golden.wav $(BuildDirectory)/resources
 
 Assert.Platform          Windows
 
