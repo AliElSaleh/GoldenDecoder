@@ -68,7 +68,7 @@ ChannelMapping ChannelMappings[] =
     {.Key = KEY_SIX,   .LeftImageName = "Math 4",             .RightImageName = "Bird",          .LeftChannelOffset = 1999655, .RightChannelOffset = 2026229},
 };
 
-u32 LineHeight = 384;
+u32 LineHeight = 430;
 
 f64 SyncScore(f32* Samples, u64 TestIndex, u64 SampleWidth, u32 Channels, bool bLeft)
 {
@@ -470,8 +470,6 @@ i32 main(void)
     {
         UpdateMusicStream(GoldenWav);
 
-        f64 MusicCursor = (f64)GetMusicTimePlayed(GoldenWav) * (f64)Wav.sampleRate;
-
         for (u32 i = 0; i < NumMappings; i++)
         {
             ChannelMapping M = ChannelMappings[i];
@@ -494,6 +492,8 @@ i32 main(void)
                 break;
             }
         }
+
+        f64 MusicCursor = (f64)GetMusicTimePlayed(GoldenWav) * (f64)Wav.sampleRate;
 
         // for (u8 i = 0; i < Substep; i++)
         {
@@ -543,6 +543,8 @@ i32 main(void)
 
         DrawText("Right Channel", BaseLocationX+800, BaseLocationY - 120, 14, WHITE);
         DrawText(ChannelMappings[CurrentChannelIndex].RightImageName, BaseLocationX+800, BaseLocationY - 100, 50, WHITE);
+
+        // DrawCircle((BaseLocationX+(267*1.5)), (BaseLocationY+((LineHeight/2.0 * 1.5) - 45)), 220, WHITE);
 
         EndDrawing();
     }
