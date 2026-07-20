@@ -42,7 +42,7 @@ typedef struct
     u32 ScanLine;
     Image* ScanImage;
     Texture2D ScanTexture;
-    bool bFinished;
+    // bool bFinished;
 } RecordPlayer;
 
 // TODO: make these clickable
@@ -73,6 +73,20 @@ ChannelMapping ChannelMappings[] =
 
 u32 LineHeight = 430;
 
+f32 SyncPeak(f32* Samples, u64 TestIndex, u64 SampleWidth, u32 Channels, bool bLeft)
+{
+    f32 Result = 0;
+
+    for (u64 k = 0; k < SampleWidth; k++)
+    {
+        f32 Value = Samples[(TestIndex+k) * Channels + (bLeft ? 0 : 1)];
+        // f32 A = fabsf(Value);
+        if (Value > Result) Result = Value;
+    }
+
+    return Result;
+}
+
 f32 SyncScore(f32* Samples, u64 TestIndex, u64 SampleWidth, u32 Channels, bool bLeft)
 {
     f32 Result = 0;
@@ -96,129 +110,8 @@ enum EdgeTrackingState
     TRACKING
 };
 
-void FindNegativeTroughPeakV2(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel, u32* OutIndex, f32* OutValue)
-{
-    u32 Index = 0;
-    f32 Peak = Samples[(SampleOffset) * Wav.channels + (bLeftChannel ? 0 : 1)];
-
-    for (u32 i = 0; i < SearchLength; i++)
-    {
-        f32 Current = Samples[(SampleOffset+i) * Wav.channels + (bLeftChannel ? 0 : 1)];
-        if (Current < Peak)
-        {
-            // printf("Peak: %f Index: %u\n", Peak, i);
-            Peak = Current;
-            Index = i;
-        }
-    }
-
-    if (OutIndex)
-    {
-        *OutIndex = Index;
-    }
-    if (OutValue)
-    {
-        *OutValue = Peak;
-    }
-}
-
-bool FindPositivePeak(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel, u32* OutIndex, f32* OutValue)
-{
-    bool bFound = false;
-
-    // u32 SamplesPerLine = Wav.sampleRate * (1.0/120.0);
-    u32 SamplesCount   = Wav.frameCount / Wav.channels;
-
-    const f32 RiseThreshold = 0.03f;
-    const u32 DebounceSamples = 5;
-    const f32 NoiseHisteresis = 0.005f;
-
-    u32 State = IDLE;
-    u32 StableCount = 0;
-    i32 PeakSampleIndex = -1;
-    f32 PeakSampleValue = 0.0;
-
-    i32 Confirmed_PeakSampleIndex = -1;
-    f32 Confirmed_PeakSampleValue = 0.0;
-
-    // printf("Offset: %u | SearchLength: %u\n", SampleOffset, SearchLength);
-
-    for (u32 i = 0; i < SearchLength; i++)
-    {
-        if (SampleOffset + i >= SamplesCount)
-        {
-            break;
-        }
-
-        f32 Current  = Samples[(SampleOffset+i)     * Wav.channels + (bLeftChannel ? 0 : 1)];
-        f32 Next     = Samples[(SampleOffset+(i+1)) * Wav.channels + (bLeftChannel ? 0 : 1)];
-        f32 Diff     = Next - Current;// - Previous;
-
-        switch (State)
-        {
-            case IDLE:
-            {
-                // printf("Diff: %f ", Diff);
-                if (Diff > RiseThreshold)
-                {
-                    PeakSampleIndex = i;
-                    PeakSampleValue = Current;
-                    StableCount = 0;
-                    State = TRACKING;
-                    // printf("diff: %f\nIndex: %d\nValue: %f\n", Diff, TroughSampleIndex, TroughSampleValue);
-                }
-            }
-            break;
-
-            case TRACKING:
-            {
-                if (Current > PeakSampleValue && Current > Confirmed_PeakSampleValue)
-                {
-                    PeakSampleIndex = i;
-                    PeakSampleValue = Current;
-                    StableCount = 0;
-                    // printf("found new Index: %d\nValue: %f\n", TroughSampleIndex, TroughSampleValue);
-                }
-                else if (Current < (PeakSampleValue - NoiseHisteresis))
-                {
-                    StableCount++;
-                }
-
-                if (StableCount >= DebounceSamples)
-                {
-                    Confirmed_PeakSampleIndex = PeakSampleIndex;
-                    Confirmed_PeakSampleValue = PeakSampleValue;
-                    bFound = true;
-                    // printf("found\n");
-
-                    State = IDLE;
-                }
-            }
-            break;
-        }
-    }
-
-    if (!bFound)
-    {
-        if (PeakSampleIndex > -1)
-        {
-            Confirmed_PeakSampleIndex = PeakSampleIndex;
-            Confirmed_PeakSampleValue = PeakSampleValue;
-            bFound = true;
-        }
-    }
-
-    if (OutIndex)
-    {
-        *OutIndex = Confirmed_PeakSampleIndex;
-    }
-    if (OutValue)
-    {
-        *OutValue = Confirmed_PeakSampleValue;
-    }
-
-    return bFound;
-}
+static f32 SampleHistoryLeft[1000] = {0};
+static f32 SampleHistoryRight[1000] = {0};
 
 bool FindNegativeTroughPeak(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel, u32* OutIndex, f32* OutValue)
 {
@@ -411,14 +304,61 @@ void DetectScanTrigger(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wa
     }
 }
 
+bool DetectBeepV2(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel)
+{
+    bool bResult = false;
+
+    f32 CrossingThreshold = 0.05f;
+
+    u32 Confirmations = 10;
+    u32 NumCrossedZero = 0;
+    // TODO: enum
+    u32 State = 0; // 0 = IDLE 1 = WAIT FOR OPPOSITE CROSSING
+    for (u32 i = 0; i < SearchLength; i++)
+    {
+        if (NumCrossedZero >= Confirmations)
+        {
+            bResult = true;
+            break;
+        }
+        
+        f32 Current = Samples[(SampleOffset+i) * Wav.channels + (bLeftChannel ? 0 : 1)];
+
+        switch (State)
+        {
+            case 0:
+            {
+                if (Current >= CrossingThreshold)
+                {
+                    State = 1;
+                }
+            }
+            break;
+
+            case 1:
+            {
+                if (Current <= -CrossingThreshold)
+                {
+                    NumCrossedZero++;
+                    State = 0;
+                }
+            }
+            break;
+        }
+    }
+    
+    return bResult;
+
+}
+
 bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImage, Texture2D OutputTexture, bool bLeftChannel,
-                      u32* Cursor, u64 Threshold)
+                      u32* Cursor, f32 Threshold)
 {
     bool bSuccess = false;
 
     u32 SamplesPerLine = (f32)Wav.sampleRate * SAMPLES_FACTOR;
     u32 Slack          = 0.05 * (f32)SamplesPerLine;
-    u32 NextLinePrediction = (*Cursor + (SamplesPerLine- Slack)) ;
+    u32 NextLinePrediction = (*Cursor + (SamplesPerLine - Slack));
 
         // printf("Cursor: %u | Prediction: %u | SamplesPerLine: %u\n", *Cursor, NextLinePrediction, SamplesPerLine);
         // printf("Cursor: %u | Prediction: %u\n", *Cursor, NextLinePrediction, SamplesPerLine);
@@ -427,50 +367,34 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
     f32 PeakValue = 0;
     if (bLeftChannel)
     {
-        u32 NextLinePrediction = (*Cursor + (SamplesPerLine - (Slack)));
-        (DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, bLeftChannel, &PeakIndex, &PeakValue));
-        // u32 NextLinePrediction = (*Cursor + (SamplesPerLine)) ;
-        // (FindPositivePeak(Samples, NextLinePrediction, Slack*4, Wav, bLeftChannel, &PeakIndex, &PeakValue));
-        printf("%i | %f\n", NextLinePrediction + PeakIndex, PeakValue);
-
-        /*
-        u64 SearchStart = (u64)(NextLinePrediction - Slack);
-        u64 SearchEnd   = (u64)(NextLinePrediction + Slack);
-
-        // now find the next peak (best score out of our search window)
-        f64 BestScore = -1.0;
-        for (u64 i = SearchStart; i < SearchEnd; i++)
-        {
-            f64 Score = SyncScore(Samples, i, Slack, Wav.channels, bLeftChannel);
-            if (Score > BestScore)
-            {
-                BestScore = Score;
-                PeakIndex = i;
-            }
-        }
-
-        // find the burst's peak amplitude
-        f32 Peak = 0.0f;
-        for (u64 i = PeakIndex; i < PeakIndex + Slack; i++)
-        {
-            f32 A = fabsf(Samples[i * Wav.channels + (bLeftChannel ? 0 : 1)]);
-            if (A > Peak) Peak = A;
-        }
-
-        // walk left from the coarse hit, then forward to the first 50%-of-peak crossing
-        u64 Edge = PeakIndex - Slack;
-        while (fabsf(Samples[Edge * Wav.channels + (bLeftChannel ? 0 : 1)]) < Peak * 0.5f)
-        {
-            Edge++;
-        }
-        PeakIndex = Edge - NextLinePrediction;
-        */
+        DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, bLeftChannel, &PeakIndex, &PeakValue);
     }
     else
     {
-        u32 NextLinePrediction = (*Cursor + (SamplesPerLine - Slack));
-        (DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, bLeftChannel, &PeakIndex, &PeakValue));
+        // TODO: right channgel specific threshold params
+        FindNegativeTroughPeak(Samples, NextLinePrediction, Slack*2, Wav, bLeftChannel, &PeakIndex, &PeakValue);
     }
+
+    // printf("%i | %f\n", NextLinePrediction + PeakIndex, PeakValue);
+
+    // f32 BestScore = SyncScore(Samples, NextLinePrediction, Slack, Wav.channels, bLeftChannel);
+
+    f32 BestScore = SyncPeak(Samples, *Cursor, SamplesPerLine, Wav.channels, bLeftChannel) / SamplesPerLine;
+
+    bool bIsBeep = DetectBeepV2(Samples, *Cursor, SamplesPerLine, Wav, bLeftChannel);
+
+    if (bIsBeep)
+    {
+        printf("Beep!\n");
+    }
+
+    f32 Diff = fabsf(BestScore - Threshold);
+    bool bWithinBand = Diff < 0.1f;
+    // bool bWithinBand = Threshold / BestScore > 0.1f;
+    printf("Best: %f | Thresold: %f\n", BestScore, Threshold);
+    if (bWithinBand && !bIsBeep)
+
+    // if (BestScore >= Threshold)
     {
         u32 NewOffset = NextLinePrediction + PeakIndex;
 
@@ -479,12 +403,12 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
         // f64 Delta = NextLineSamplesActual - SamplesPerLine;
         // printf("line %llu: %f (delta: %f)\n", Line, NextLineSamplesActual, Delta);
 
-        f64 Black = -0.15;
-        f64 White = 0.1;
-        // f64 Black = -0.1;
-        // f64 White = 0.05;
+        // f64 Black = -0.15;
+        // f64 White = 0.1;
+        f64 Black = -0.1;
+        f64 White = 0.07;
 
-        f64 ImageStart = *Cursor;// - SyncBurstWidth;
+        f64 ImageStart = *Cursor;
         f64 ImageLen   = NextLineSamplesActual;
 
         for (i32 y = 0; y < LineHeight; y++)
@@ -673,112 +597,6 @@ i32 main(void)
     Image Scan_Right = GenImageColor(600, LineHeight, BLANK);
     Texture2D ScanTexture_Right = LoadTextureFromImage(Scan_Right);
     
-
-    // TODO: make these sliders
-    /*
-    f64 HighPitchWidth = 8192.0;
-    f64 SyncBurstWidth = 20.0;
-    f64 SyncBurstScoreThreshold = 400.0;
-    f64 SamplesPerLine = 370.0;
-    f64 Slack = 0.1 * SamplesPerLine;
-    
-    
-    u64 StartFrame_L = LeftChannel_Circle + HighPitchWidth;
-    // u64 StartFrame_L = 1227257;// + HighPitchWidth;
-    // f32 SampleLeft = Samples[(StartFrameLeft + i) * Wav.channels + 0];
-    // f32* SamplesRight = &Samples[StartFrameRight * Wav.channels + 1];
-
-    f32* SyncBurstStart = Samples + StartFrame_L;
-    // f32* SyncBurstEnd   = Samples + ((StartFrameLeft + (u64)SyncWidth_Samples) * Wav.channels) + 0;
-
-    f64 Score = SyncScore(SyncBurstStart, 0, SyncBurstWidth, Wav.channels, true);
-    printf("Burst Score: %f\n", Score);
-
-    f64 Cursor = StartFrame_L;
-    f64 Threshold = Score * 0.5;
-    for (u64 Line = 0; Line < 2000; Line++)
-    {
-        f64 NextLinePrediction = Cursor + SamplesPerLine;
-        
-        u64 SearchStart = (u64)(NextLinePrediction - Slack);
-        u64 SearchEnd   = (u64)(NextLinePrediction + Slack);
-
-        // now find the next peak (best score out of our search window)
-        u64 BestIndex = 0;
-        f64 BestScore = -1.0;
-        for (u64 i = SearchStart; i < SearchEnd; i++)
-        {
-            f64 Score = SyncScore(Samples, i, SyncBurstWidth, Wav.channels, true);
-            if (Score > BestScore)
-            {
-                BestScore = Score;
-                BestIndex = i;
-            }
-        }
-
-        // find the burst's peak amplitude
-        f32 Peak = 0.0f;
-        for (u64 i = BestIndex; i < BestIndex + (u64)SyncBurstWidth; i++)
-        {
-            f32 A = fabsf(Samples[i * Wav.channels + 0]);
-            if (A > Peak) Peak = A;
-        }
-
-        // walk left from the coarse hit, then forward to the first 50%-of-peak crossing
-        u64 Edge = BestIndex - (u64)SyncBurstWidth;
-        while (fabsf(Samples[Edge * Wav.channels + 0]) < Peak * 0.5f)
-        {
-            Edge++;
-        }
-
-
-        if (BestScore >= Threshold)
-        {
-            f64 NextLineSamplesActual = (f64)(BestIndex - Cursor);
-            f64 Delta = NextLineSamplesActual - SamplesPerLine;
-            printf("line %llu: %f (delta: %f)\n", Line, NextLineSamplesActual, Delta);
-
-            f64 Black = -0.10;
-            f64 White = 0.1;
-
-            f64 ImageStart = Cursor - SyncBurstWidth;
-            f64 ImageLen   = NextLineSamplesActual;
-
-            for (i32 y = 0; y < LineHeight; y++)
-            {
-                u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)LineHeight) * ImageLen;
-                u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)LineHeight) * ImageLen;
-                if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
-
-                f64 Sum = 0;
-                for (u64 i = SampleIndex0; i < SampleIndex1; i++)
-                {
-                    Sum += Samples[i * Wav.channels + 0];
-                }
-                f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
-
-                i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
-                if (V < 0) V = 0; if (V > 255) V = 255;
-
-                V = 255 - V;
-
-                Color PixelColor = (Color){ V, V, V, 255};
-                ImageDrawPixel(&Scan_Left, Line, y, PixelColor);
-            }
-
-            // Cursor = (f64)BestIndex;
-            Cursor = (f64)Edge;
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    UpdateTexture(ScanTexture_Left, Scan_Left.data);
-    UpdateTexture(ScanTexture_Right, Scan_Right.data);
-    */
-
     // DecodeImage(Wav, LeftChannel_Circle, &Scan_Left, ScanTexture_Left, true);
     // DecodeImage(Wav, RightChannel_Frog, &Scan_Right, ScanTexture_Right, false);
 
@@ -790,9 +608,8 @@ i32 main(void)
     f64 SyncBurstWidth = 10.0;
     // f64 SamplesPerLine = 379.0;
     u32 SamplesPerLine = Wav.sampleRate * SAMPLES_FACTOR;
-    u32 Slack = 0.1 * SamplesPerLine;
+    u32 Slack = 0.05 * SamplesPerLine;
 
-    u8 Substep = 2;
     /*
 
     u64 StartFrame = ImageSampleOffset;
@@ -811,12 +628,30 @@ i32 main(void)
     RecordPlayer Player_LeftChannel = {.ScanImage = &Scan_Left, .ScanTexture = ScanTexture_Left};
     RecordPlayer Player_RightChannel = {.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right};
 
-    JumpToMapping(&Player_LeftChannel, &Player_RightChannel, 0);
+    // JumpToMapping(&Player_LeftChannel, &Player_RightChannel, 0);
 
-    Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, SyncBurstWidth, Wav.channels, true) * 0.5;
-    Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, SyncBurstWidth, Wav.channels, false) * 0.5;
+    Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true) / Slack;
+    Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false) / Slack;
 
     u32 NumMappings = sizeof(ChannelMappings) / sizeof(ChannelMappings[0]);
+
+    f32 StartWave = SyncScore(Samples, 200000, Slack, Wav.channels, true) / Slack;
+    printf("Start wave Score: %f (x2 %f)\n", StartWave, StartWave * 2);
+    f32 AvgSpikeyWave_1 = SyncScore(Samples, 437374, Slack, Wav.channels, true) / Slack;
+    printf("Spikey wave Score: %f (x2 %f)\n", AvgSpikeyWave_1, AvgSpikeyWave_1 - StartWave);
+    f32 AvgScreechWave_1 = SyncScore(Samples, 985055, Slack, Wav.channels, true) / Slack;
+    printf("Screech wave Score: %f (x2 %f)\n", AvgScreechWave_1, AvgScreechWave_1 - AvgSpikeyWave_1);
+    f32 AvgBeepWave_1 = SyncScore(Samples, 1366553, Slack, Wav.channels, true) / Slack;
+    printf("Beep wave Score: %f (x2 %f)\n", AvgBeepWave_1, AvgBeepWave_1 - AvgScreechWave_1);
+    f32 FirstImage_1 = SyncScore(Samples, 1383413, Slack, Wav.channels, true) / Slack;
+    printf("First Image wave Score: %f (x2 %f)\n", FirstImage_1, FirstImage_1 - AvgBeepWave_1);
+    // f32 RandImage_1 = SyncScore(Samples, 3433363, 1000, Wav.channels, true) / 1000;
+    // printf("Rand Image wave Score: %f\n", RandImage_1);
+    // f32 AvgBeepWave_2 = SyncScore(Samples, 3539094, 1000, Wav.channels, true) / 1000;
+    // printf("Beep wave 2 Score: %f\n", AvgBeepWave_2);
+    // f32 AvgBlankWave_1 = SyncScore(Samples, 896063, 50000, Wav.channels, true) / 50000.0f;
+    // printf("blank Score: %f\n", AvgBlankWave_1);
+
 
     /*
     {
@@ -870,8 +705,10 @@ i32 main(void)
 
                 JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
 
-                Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, SyncBurstWidth, Wav.channels, true) * 0.5;
-                Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, SyncBurstWidth, Wav.channels, false) * 0.5;
+                // Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true);
+                // Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false);
+                Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
+                Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
 
 
                 u64 MusicPosition = M.LeftChannelOffset < M.RightChannelOffset ? M.LeftChannelOffset : M.RightChannelOffset;
@@ -883,7 +720,12 @@ i32 main(void)
 
         f32 MusicCursor = (f32)GetMusicTimePlayed(GoldenWav) * (f32)Wav.sampleRate;
 
-        while (!Player_LeftChannel.bFinished && Player_LeftChannel.Cursor + SamplesPerLine <= MusicCursor)
+        {
+            f32 Peak = SyncPeak(Samples, Player_LeftChannel.Cursor, SamplesPerLine, Wav.channels, true);
+            Player_LeftChannel.Threshold = Peak/SamplesPerLine;
+        }
+
+        while (Player_LeftChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
             if (DecodeImage_StepV2(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold))
             {
@@ -891,11 +733,21 @@ i32 main(void)
             }
             else
             {
-                Player_LeftChannel.bFinished = true;
+                Player_LeftChannel.ScanLine = 0;
+                Player_LeftChannel.Cursor = MusicCursor;
+                // printf("left finished\n");
+                break;
             }
         }
 
-        while (!Player_RightChannel.bFinished && Player_RightChannel.Cursor + SamplesPerLine <= MusicCursor)
+        {
+
+            f32 Peak = SyncPeak(Samples, Player_RightChannel.Cursor, SamplesPerLine, Wav.channels, false);
+            Player_RightChannel.Threshold = Peak/SamplesPerLine;
+        }
+
+
+        while (Player_RightChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
             if (DecodeImage_StepV2(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold))
             {
@@ -903,7 +755,10 @@ i32 main(void)
             }
             else
             {
-                Player_RightChannel.bFinished = true;
+                Player_RightChannel.ScanLine = 0;
+                Player_RightChannel.Cursor = MusicCursor;
+                // Player_RightChannel.bFinished = true;
+                break;
             }
         }
 
