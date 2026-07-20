@@ -24,6 +24,15 @@ typedef double               f64;
 #define ClampMax(a, b) (a) > (b) ? (a) : (b)
 #define ClampMin(a, b) (a) < (b) ? (a) : (b)
 
+typedef u8 EImageColorChannel;
+enum
+{
+    Mono  = 0,
+    Red   = 1,
+    Green = 2,
+    Blue  = 3
+};
+
 typedef struct
 {
     KeyboardKey Key;
@@ -31,7 +40,9 @@ typedef struct
     const char* RightImageName;
     u32 LeftChannelOffset;
     u32 RightChannelOffset;
-} ChannelMapping;
+    EImageColorChannel LeftColorChannel;
+    EImageColorChannel RightColorChannel;
+} ImageMapping;
 
 
 typedef struct
@@ -61,15 +72,58 @@ const u32 RightChannel_Lizard   = 1773431;
 #define OFFSET_SCALING 2
 #define SAMPLES_FACTOR (1.0f/(120.0f/(f32)(OFFSET_SCALING)))
 
-ChannelMapping ChannelMappings[] =
+ImageMapping ImageMappings[] =
 {
-    {.Key = KEY_ONE,   .LeftImageName = "Calibration Circle", .RightImageName = "Beach (Red)",   .LeftChannelOffset = 687981  * OFFSET_SCALING, .RightChannelOffset = 745392  * OFFSET_SCALING},
-    {.Key = KEY_TWO,   .LeftImageName = "Milky Way",          .RightImageName = "Beach (Green)", .LeftChannelOffset = 952854  * OFFSET_SCALING, .RightChannelOffset = 992388  * OFFSET_SCALING},
-    {.Key = KEY_THREE, .LeftImageName = "Math 1",             .RightImageName = "Beach (Blue)",  .LeftChannelOffset = 1223649 * OFFSET_SCALING, .RightChannelOffset = 1252857 * OFFSET_SCALING},
-    {.Key = KEY_FOUR,  .LeftImageName = "Math 2",             .RightImageName = "Frog",          .LeftChannelOffset = 1484927 * OFFSET_SCALING, .RightChannelOffset = 1516492 * OFFSET_SCALING},
-    {.Key = KEY_FIVE,  .LeftImageName = "Math 3",             .RightImageName = "Lizard",        .LeftChannelOffset = 1743594 * OFFSET_SCALING, .RightChannelOffset = 1773431 * OFFSET_SCALING},
-    {.Key = KEY_SIX,   .LeftImageName = "Math 4",             .RightImageName = "Bird",          .LeftChannelOffset = 1999655 * OFFSET_SCALING, .RightChannelOffset = 2026229 * OFFSET_SCALING},
+    {.Key = KEY_ONE,   .LeftImageName = "Calibration Circle", .RightImageName = "Beach (Red)",    .LeftChannelOffset = 687981  * OFFSET_SCALING, .RightChannelOffset = 745392  * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Red  },
+    {.Key = KEY_TWO,   .LeftImageName = "Milky Way",          .RightImageName = "Beach (Green)",  .LeftChannelOffset = 952854  * OFFSET_SCALING, .RightChannelOffset = 992388  * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Green},
+    {.Key = KEY_THREE, .LeftImageName = "Math 1",             .RightImageName = "Beach (Blue)",   .LeftChannelOffset = 1223649 * OFFSET_SCALING, .RightChannelOffset = 1252857 * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Blue },
+    {.Key = KEY_FOUR,  .LeftImageName = "Math 2",             .RightImageName = "Frog",           .LeftChannelOffset = 1484927 * OFFSET_SCALING, .RightChannelOffset = 1516492 * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Mono},
+    {.Key = KEY_FIVE,  .LeftImageName = "Math 3",             .RightImageName = "Lizard",         .LeftChannelOffset = 1743594 * OFFSET_SCALING, .RightChannelOffset = 1773431 * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Mono},
+    {.Key = KEY_SIX,   .LeftImageName = "Math 4",             .RightImageName = "Bird",           .LeftChannelOffset = 1999655 * OFFSET_SCALING, .RightChannelOffset = 2026229 * OFFSET_SCALING, .LeftColorChannel = Mono, .RightColorChannel = Mono},
+    {.Key = KEY_SEVEN, .LeftImageName = "Circles (rename)",   .RightImageName = "Zebra",          .LeftChannelOffset = 4499971, .RightChannelOffset = 4544038, .LeftColorChannel = Mono, .RightColorChannel = Mono},
+    {.Key = KEY_EIGHT, .LeftImageName = "Squares (Red)",      .RightImageName = "Jungle (Red)",   .LeftChannelOffset = 4983343, .RightChannelOffset = 5035888, .LeftColorChannel = Red, .RightColorChannel = Red},
+    {.Key = KEY_NINE,  .LeftImageName = "Squares (Green)",    .RightImageName = "Jungle (Green)", .LeftChannelOffset = 5467790, .RightChannelOffset = 5541540, .LeftColorChannel = Green, .RightColorChannel = Green},
+    {.Key = KEY_ZERO,  .LeftImageName = "Squares (Blue)",     .RightImageName = "Jungle (Blue)",  .LeftChannelOffset = 5955426, .RightChannelOffset = 6039176, .LeftColorChannel = Blue, .RightColorChannel = Blue},
+    {.Key = KEY_ZERO,  .LeftImageName = "Moon",               .RightImageName = "Hunters (outline)",.LeftChannelOffset = 6582100, .RightChannelOffset = 6569625, .LeftColorChannel = Mono, .RightColorChannel = Mono},
 };
+
+
+EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
+{
+    EImageColorChannel Result = Mono;
+
+    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
+    for (u32 i = 0; i < NumMappings; i++)
+    {
+        ImageMapping M = ImageMappings[i];
+        ImageMapping M2 = {0};
+        bool bHaveNext = false;
+        if (i+1 < NumMappings)
+        {
+            bHaveNext = true;
+            M2 = ImageMappings[i+1];
+        }
+
+        if (bLeftChannel)
+        {
+            if (SampleOffset > M.LeftChannelOffset && (!bHaveNext || (bHaveNext && SampleOffset < M2.LeftChannelOffset)))
+            {
+                Result = M.LeftColorChannel;
+                break;
+            }
+        }
+        else
+        {
+            if (SampleOffset > M.RightChannelOffset && (!bHaveNext || (bHaveNext && SampleOffset < M2.RightChannelOffset)))
+            {
+                Result = M.RightColorChannel;
+                break;
+            }
+        }
+    }
+
+    return Result;
+}
 
 u32 LineHeight = 430;
 
@@ -352,7 +406,7 @@ bool DetectBeepV2(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bo
 }
 
 bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImage, Texture2D OutputTexture, bool bLeftChannel,
-                      u32* Cursor, f32 Threshold)
+                      u32* Cursor, f32 Threshold, EImageColorChannel ColorChannel)
 {
     bool bSuccess = false;
 
@@ -391,9 +445,8 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
     f32 Diff = fabsf(BestScore - Threshold);
     bool bWithinBand = Diff < 0.1f;
     // bool bWithinBand = Threshold / BestScore > 0.1f;
-    printf("Best: %f | Thresold: %f\n", BestScore, Threshold);
+    // printf("Best: %f | Thresold: %f\n", BestScore, Threshold);
     if (bWithinBand && !bIsBeep)
-
     // if (BestScore >= Threshold)
     {
         u32 NewOffset = NextLinePrediction + PeakIndex;
@@ -410,8 +463,8 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
 
         f64 ImageStart = *Cursor;
         f64 ImageLen   = NextLineSamplesActual;
-
-        for (i32 y = 0; y < LineHeight; y++)
+        
+        for (i32 y = 0; StepIndex < 600 && y < LineHeight; y++)
         {
             u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)LineHeight) * ImageLen;
             u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)LineHeight) * ImageLen;
@@ -429,7 +482,43 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
 
             V = 255 - V;
 
-            Color PixelColor = (Color){ V, V, V, 255};
+            Color CurrentColor = GetImageColor(*OutputImage, StepIndex, y);
+            Color PixelColor = {0};
+            switch (ColorChannel)
+            {
+                default:
+                case Mono:
+                {
+                    PixelColor = (Color){ V, V, V, 255};
+                }
+                break;
+
+                case Red:
+                {
+                    CurrentColor.r = V;
+                    CurrentColor.g = 0;
+                    CurrentColor.b = 0;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Green:
+                {
+                    CurrentColor.g = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Blue:
+                {
+                    CurrentColor.b = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+            }
+
+            PixelColor.a = 255;
+
             ImageDrawPixel(OutputImage, StepIndex, y, PixelColor);
         }
 
@@ -564,7 +653,7 @@ void DecodeImage(Wave Wav, u64 ImageSampleOffset, Image* OutputImage, Texture2D 
 
 void JumpToMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index)
 {
-    ChannelMapping M = ChannelMappings[Index];
+    ImageMapping M = ImageMappings[Index];
 
     Left->ImageOffset = M.LeftChannelOffset;
     Left->Cursor = M.LeftChannelOffset;
@@ -633,7 +722,7 @@ i32 main(void)
     Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true) / Slack;
     Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false) / Slack;
 
-    u32 NumMappings = sizeof(ChannelMappings) / sizeof(ChannelMappings[0]);
+    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
     f32 StartWave = SyncScore(Samples, 200000, Slack, Wav.channels, true) / Slack;
     printf("Start wave Score: %f (x2 %f)\n", StartWave, StartWave * 2);
@@ -657,7 +746,7 @@ i32 main(void)
     {
         i32 Index = 0;
         f32 Value = 0;
-        u32 StartingOffset = 0;//ChannelMappings[0].LeftChannelOffset;
+        u32 StartingOffset = 0;//ImageMappings[0].LeftChannelOffset;
         while (1)
         {
             if (FindNegativeTroughPeak(Samples, StartingOffset, SamplesPerLine, Wav, true, &Index, &Value))
@@ -670,32 +759,13 @@ i32 main(void)
     }
     */
 
-    /*
-    {
-        i32 Index = 0;
-        f32 Value = 0;
-        u32 StartingOffset = ChannelMappings[0].LeftChannelOffset;
-        u32 count = 0;
-        while (count < 100)
-        {
-            if (FindPositivePeak(Samples, StartingOffset, SamplesPerLine, Wav, true, &Index, &Value))
-            {
-                printf("Positive Peak Index: %d (%u) | %f\n", Index, StartingOffset+Index, Value);
-            }
-
-            StartingOffset += Wav.sampleRate * SAMPLES_FACTOR;
-            count++;
-        }
-    }
-    */
-
     while (!WindowShouldClose())
     {
         UpdateMusicStream(GoldenWav);
 
         for (u32 i = 0; i < NumMappings; i++)
         {
-            ChannelMapping M = ChannelMappings[i];
+            ImageMapping M = ImageMappings[i];
             if (IsKeyPressed(M.Key))
             {
                 // DecodeImage(Wav, M.LeftChannelOffset, &Scan_Left, ScanTexture_Left, true);
@@ -727,7 +797,7 @@ i32 main(void)
 
         while (Player_LeftChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
-            if (DecodeImage_StepV2(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold))
+            if (DecodeImage_StepV2(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold, GetColorChannelFromSampleOffset(Player_LeftChannel.Cursor, true)))
             {
                 Player_LeftChannel.ScanLine++;
             }
@@ -749,7 +819,7 @@ i32 main(void)
 
         while (Player_RightChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
-            if (DecodeImage_StepV2(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold))
+            if (DecodeImage_StepV2(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold, GetColorChannelFromSampleOffset(Player_RightChannel.Cursor, false)))
             {
                 Player_RightChannel.ScanLine++;
             }
@@ -773,10 +843,10 @@ i32 main(void)
         DrawTextureEx(ScanTexture_Right, (Vector2){BaseLocationX+800, BaseLocationY}, 0, 1.5f, WHITE);
 
         DrawText("Left Channel", BaseLocationX, BaseLocationY - 120, 14, WHITE);
-        DrawText(ChannelMappings[CurrentChannelIndex].LeftImageName, BaseLocationX, BaseLocationY - 100, 50, WHITE);
+        DrawText(ImageMappings[CurrentChannelIndex].LeftImageName, BaseLocationX, BaseLocationY - 100, 50, WHITE);
 
         DrawText("Right Channel", BaseLocationX+800, BaseLocationY - 120, 14, WHITE);
-        DrawText(ChannelMappings[CurrentChannelIndex].RightImageName, BaseLocationX+800, BaseLocationY - 100, 50, WHITE);
+        DrawText(ImageMappings[CurrentChannelIndex].RightImageName, BaseLocationX+800, BaseLocationY - 100, 50, WHITE);
 
         // DrawCircle((BaseLocationX+(267*1.5)), (BaseLocationY+((LineHeight/2.0 * 1.5) - 45)), 220, WHITE);
 
