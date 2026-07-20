@@ -17,7 +17,11 @@ if mode == debug
     Compiler.Defines _DEBUG
 }
 
-SourceFiles.Exclude     Entry.c Entry-V2.c
+SourceFiles
+[
+    Source/Program
+    Source/GoldenDecoder_WindowIcon
+]
 
 Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
 Linker.Flags            $SharedLinkerFlags
@@ -27,13 +31,14 @@ Library.Paths           Libraries
 
 PostBuild
 {
-    Copy(if_not_exist) resources/golden2x-32.wav $(BuildDirectory)/resources
-    Copy(if_not_exist) resources/golden.wav $(BuildDirectory)/resources
-
-    Copy(if_not_exist) resources/$(Icon).ico $(BuildDirectory)/resources/$(Icon).ico
-    Copy(if_not_exist) resources/$(Icon).png $(BuildDirectory)/resources/$(Icon).png
+    Copy
+    {
+        resources/golden2x-32.wav $(BuildDirectory)/resources
+        resources/golden.wav $(BuildDirectory)/resources
+        resources/$(Icon).* $(BuildDirectory)/resources
+    }
 }
 
-Assert.Platform          Windows
+Assert.Platform Windows
 
 option.mode(Debug Release)
