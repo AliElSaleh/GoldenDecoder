@@ -664,13 +664,56 @@ void JumpToMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index)
     Right->ScanLine = 0;
 }
 
+void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
+                         u32 SamplesPerLine, u32 NumSamplesToDraw, bool bLeftChannel,
+                         i32 BaseLocationX, i32 BaseLocationY, i32 ScanWidth, i32 ScanHeight)
+{
+    if (MusicCursor <= SamplesPerLine * NumSamplesToDraw)
+    {
+        return;
+    }
+
+    u32 Channel = bLeftChannel ? 0 : 1;
+
+    u32 StartPointX = BaseLocationX;
+    u32 EndPointX   = BaseLocationX + (ScanWidth  * 1.5f - 100);
+    u32 MidPointY   = BaseLocationY + (ScanHeight * 1.5f + 65);
+
+    u32 Window      = SamplesPerLine * NumSamplesToDraw;
+    u32 CursorStart = MusicCursor - Window;
+    u32 CursorEnd   = MusicCursor;
+
+    u32 TriggerRel = 0;
+    DetectScanTrigger(Samples, CursorStart, Window, Wav, bLeftChannel, &TriggerRel, NULL);
+
+    if (TriggerRel > 0)
+    {
+        Window      = CursorEnd - CursorStart;
+        CursorStart = MusicCursor - Window;
+        CursorEnd   = CursorStart + TriggerRel;
+    }
+
+    for (u32 i = CursorStart; i < CursorEnd; i++)
+    {
+        f32 Value = Samples[i * Wav.channels + Channel] * 350.0f;
+
+        f32 Alpha = ((f32)(CursorEnd - i) / Window);
+
+        u32 XOffset = StartPointX + (i32)((EndPointX - StartPointX) * (1.0f - Alpha));
+
+        DrawPixel(XOffset, MidPointY + Value, WHITE);
+    }
+}
+
 i32 main(void)
 {
     const i32 ScreenWidth = 1600;
     const i32 ScreenHeight = 900;
 
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
     InitWindow(ScreenWidth, ScreenHeight, "Golden Decoder");
-    SetTargetFPS(120);
+    SetTargetFPS(0);
+    
 
     InitAudioDevice();
 
@@ -690,7 +733,7 @@ i32 main(void)
     // DecodeImage(Wav, RightChannel_Frog, &Scan_Right, ScanTexture_Right, false);
 
     i32 BaseLocationX = GetScreenWidth()/2 - 800;
-    i32 BaseLocationY = GetScreenHeight()/2 - 300;
+    i32 BaseLocationY = GetScreenHeight()/2 - 325;
 
     u32 CurrentChannelIndex = 0;
 
@@ -842,13 +885,37 @@ i32 main(void)
         DrawTextureEx(ScanTexture_Left, (Vector2){BaseLocationX, BaseLocationY}, 0, 1.5f, WHITE);
         DrawTextureEx(ScanTexture_Right, (Vector2){BaseLocationX+800, BaseLocationY}, 0, 1.5f, WHITE);
 
-        DrawText("Left Channel", BaseLocationX, BaseLocationY - 120, 14, WHITE);
-        DrawText(ImageMappings[CurrentChannelIndex].LeftImageName, BaseLocationX, BaseLocationY - 100, 50, WHITE);
+        // DrawFPS(5, 5);
 
-        DrawText("Right Channel", BaseLocationX+800, BaseLocationY - 120, 14, WHITE);
-        DrawText(ImageMappings[CurrentChannelIndex].RightImageName, BaseLocationX+800, BaseLocationY - 100, 50, WHITE);
+        f32 PlayedTime = GetMusicTimePlayed(GoldenWav);
+        const char* TimeText = TextFormat("%02i:%02i:%03i", (i32)PlayedTime / 60, (i32)PlayedTime % 60, (i32)(PlayedTime * 1000) % 1000);
+        i32 TimeFontSize = 30;
+        i32 TimeCenterX  = BaseLocationX + (i32)((690 + Scan_Left.width * 1.5f) / 2);
+        DrawText(TimeText, TimeCenterX - MeasureText(TimeText, TimeFontSize) / 2, BaseLocationY-50, TimeFontSize, WHITE);
 
-        // DrawCircle((BaseLocationX+(267*1.5)), (BaseLocationY+((LineHeight/2.0 * 1.5) - 45)), 220, WHITE);
+        // DrawText("Left Channel", BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
+        DrawText(ImageMappings[CurrentChannelIndex].LeftImageName, BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
+
+        // DrawText("Right Channel", BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
+        DrawText(ImageMappings[CurrentChannelIndex].RightImageName, BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
+
+        static u32 NumSamplesToDraw = 6;
+        if (IsKeyPressed(KEY_UP))
+        {
+            NumSamplesToDraw++;
+            printf("%u\n", NumSamplesToDraw);
+        }
+        if (IsKeyPressed(KEY_DOWN))
+        {
+            NumSamplesToDraw--;
+            printf("%u\n", NumSamplesToDraw);
+        }
+
+        DrawChannelWaveform(Samples, Wav, MusicCursor, SamplesPerLine, NumSamplesToDraw,
+                            true,  BaseLocationX,       BaseLocationY, Scan_Left.width, Scan_Left.height);
+
+        DrawChannelWaveform(Samples, Wav, MusicCursor, SamplesPerLine, NumSamplesToDraw,
+                            false, BaseLocationX + 800, BaseLocationY, Scan_Left.width, Scan_Left.height);
 
         EndDrawing();
     }
