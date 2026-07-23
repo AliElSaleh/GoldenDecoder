@@ -9,6 +9,7 @@ BuildDirectory        Build/%Mode
 if mode == release
 {
     SharedCompilerFlags -O3 -funroll-loops -ffast-math
+    Linker.Subsystem Windows
 }
 if mode == debug 
 {
