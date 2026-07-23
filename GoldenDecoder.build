@@ -8,7 +8,7 @@ BuildDirectory        Build/%Mode
 
 if mode == release
 {
-    SharedCompilerFlags -O3
+    SharedCompilerFlags -O3 -funroll-loops -ffast-math
 }
 if mode == debug 
 {
@@ -17,11 +17,8 @@ if mode == debug
     Compiler.Defines _DEBUG
 }
 
-SourceFiles
-[
-    Source/Program
-    Source/GoldenDecoder_WindowIcon
-]
+SourceFiles         Source/Program
+SourceFiles:windows resources/GoldenDecoder_WindowIcon
 
 Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
 Linker.Flags            $SharedLinkerFlags
@@ -33,7 +30,7 @@ PostBuild
 {
     Copy
     {
-        resources/golden2x-32.wav $(BuildDirectory)/resources
+        #resources/golden2x-32.wav $(BuildDirectory)/resources
         resources/golden.wav $(BuildDirectory)/resources
         resources/$(Icon).* $(BuildDirectory)/resources
     }

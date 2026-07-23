@@ -3,8 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-#include "Clock.h"
-
 // Unsigned integer types
 typedef unsigned char        u8;
 typedef unsigned short       u16;
