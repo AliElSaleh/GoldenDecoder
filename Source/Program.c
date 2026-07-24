@@ -51,27 +51,16 @@ typedef struct
     u32 ScanLine;
     Image* ScanImage;
     Texture2D ScanTexture;
-    // bool bFinished;
 } RecordPlayer;
 
-// TODO: make these clickable
-const u32 LeftChannel_Circle   = 687981;
-const u32 LeftChannel_MilkyWay = 952854;
-const u32 LeftChannel_Math_1   = 1223649;
-const u32 LeftChannel_Math_2   = 1484927;
-const u32 LeftChannel_Math_3   = 1743594;
-
-const u32 RightChannel_BeachR   = 745392;
-const u32 RightChannel_BeachG   = 992388;
-const u32 RightChannel_BeachB   = 1252857;
-const u32 RightChannel_Frog     = 1516492;
-const u32 RightChannel_Lizard   = 1773431;
 
 #define OFFSET_SCALING 2
 #define SAMPLES_FACTOR (1.0f/(120.0f/(f32)(OFFSET_SCALING)))
 
+// TODO: make these clickable
 // TODO: slow mo scanline slider, so you can see the vertical pixel lines filling in realtime
 
+// names referenced from: https://en.wikipedia.org/wiki/Contents_of_the_Voyager_Golden_Record
 // yes i really did type this by hand
 ImageMapping ImageMappings[] =
 {
@@ -161,69 +150,7 @@ i32 GetChannelIndexFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
     i32 Result = -1;
 
     u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
-    for (i32 i = NumMappings-1; i >= 0; i--)
-    {
-        ImageMapping M = ImageMappings[i];
-
-        if (bLeftChannel)
-        {
-            if (SampleOffset > M.LeftChannelOffset)
-            {
-                Result = i;
-                break;
-            }
-        }
-        else
-        {
-            if (SampleOffset > M.RightChannelOffset)
-            {
-                Result = i;
-                break;
-            }
-        }
-    }
-
-    return Result;
-}
-
-/*
-const char* GetImageNameFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
-{
-    const char* Result = "";
-
-    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
-    for (i32 i = NumMappings-1; i >= 0; i++)
-    {
-        ImageMapping M = ImageMappings[i];
-
-        if (bLeftChannel)
-        {
-            if (SampleOffset > M.LeftChannelOffset)
-            {
-                Result = M.LeftImageName;
-                break;
-            }
-        }
-        else
-        {
-            if (SampleOffset > M.RightChannelOffset)
-            {
-                Result = M.RightImageName;
-                break;
-            }
-        }
-    }
-
-    return Result;
-}
-*/
-
-EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
-{
-    EImageColorChannel Result = Mono;
-
-    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
-    for (u32 i = 0; i < NumMappings; i++)
+    for (i32 i = 0; i < NumMappings; i++)
     {
         ImageMapping M = ImageMappings[i];
         ImageMapping M2 = {0};
@@ -238,7 +165,7 @@ EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftC
         {
             if (SampleOffset > M.LeftChannelOffset && (!bHaveNext || (bHaveNext && SampleOffset < M2.LeftChannelOffset)))
             {
-                Result = M.LeftColorChannel;
+                Result = i;
                 break;
             }
         }
@@ -246,9 +173,49 @@ EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftC
         {
             if (SampleOffset > M.RightChannelOffset && (!bHaveNext || (bHaveNext && SampleOffset < M2.RightChannelOffset)))
             {
-                Result = M.RightColorChannel;
+                Result = i;
                 break;
             }
+        }
+    }
+
+    return Result;
+}
+
+const char* GetImageNameFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
+{
+    const char* Result = "";
+
+    i32 ChannelIndex = GetChannelIndexFromSampleOffset(SampleOffset, bLeftChannel);
+    if (ChannelIndex > -1)
+    {
+        if (bLeftChannel)
+        {
+            Result = ImageMappings[ChannelIndex].LeftImageName;
+        }
+        else
+        {
+            Result = ImageMappings[ChannelIndex].RightImageName;
+        }
+    }
+
+    return Result;
+}
+
+EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
+{
+    EImageColorChannel Result = Mono;
+
+    i32 ChannelIndex = GetChannelIndexFromSampleOffset(SampleOffset, bLeftChannel);
+    if (ChannelIndex > -1)
+    {
+        if (bLeftChannel)
+        {
+            Result = ImageMappings[ChannelIndex].LeftColorChannel;
+        }
+        else
+        {
+            Result = ImageMappings[ChannelIndex].RightColorChannel;
         }
     }
 
@@ -488,7 +455,7 @@ void DetectScanTrigger(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wa
     }
 }
 
-bool DetectBeepV2(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel)
+bool DetectBeep(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel)
 {
     bool bResult = false;
 
@@ -565,7 +532,7 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
 
     f32 BestScore = SyncPeak(Samples, *Cursor, SamplesPerLine, Wav.channels, bLeftChannel) / SamplesPerLine;
 
-    bool bIsBeep = DetectBeepV2(Samples, *Cursor, SamplesPerLine, Wav, bLeftChannel);
+    bool bIsBeep = DetectBeep(Samples, *Cursor, SamplesPerLine, Wav, bLeftChannel);
 
     if (bIsBeep)
     {
@@ -843,7 +810,9 @@ i32 main(void)
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
     InitWindow(ScreenWidth, ScreenHeight, "Golden Decoder");
     SetTargetFPS(0);
-    
+
+    i32 BaseLocationX = GetScreenWidth()/2 - 800;
+    i32 BaseLocationY = GetScreenHeight()/2 - 325;
 
     InitAudioDevice();
 
@@ -858,82 +827,22 @@ i32 main(void)
 
     Image Scan_Right = GenImageColor(600, LineHeight, BLANK);
     Texture2D ScanTexture_Right = LoadTextureFromImage(Scan_Right);
-    
-    // DecodeImage(Wav, LeftChannel_Circle, &Scan_Left, ScanTexture_Left, true);
-    // DecodeImage(Wav, RightChannel_Frog, &Scan_Right, ScanTexture_Right, false);
 
-    i32 BaseLocationX = GetScreenWidth()/2 - 800;
-    i32 BaseLocationY = GetScreenHeight()/2 - 325;
-
-    f64 SyncBurstWidth = 10.0;
-    // f64 SamplesPerLine = 379.0;
     u32 SamplesPerLine = Wav.sampleRate * SAMPLES_FACTOR;
     u32 Slack = 0.05 * SamplesPerLine;
-
-    /*
-
-    u64 StartFrame = ImageSampleOffset;
-
-    // TODO: fix leak
-    f32* Samples = LoadWaveSamples(Wav);
-
-    f64 Score = SyncScore(Samples, StartFrame, SyncBurstWidth, Wav.channels, bLeftChannel);
-    // printf("Burst Score: %f\n", Score);
-    
-    f64 Cursor = StartFrame;
-    f64 Threshold = Score * 0.5;
-    u64 Line = 0;
-    */
 
     RecordPlayer Player_LeftChannel = {.ScanImage = &Scan_Left, .ScanTexture = ScanTexture_Left};
     RecordPlayer Player_RightChannel = {.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right};
 
-    // JumpToMapping(&Player_LeftChannel, &Player_RightChannel, 0);
-
     Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true) / Slack;
     Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false) / Slack;
 
-    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
-
-    f32 StartWave = SyncScore(Samples, 200000, Slack, Wav.channels, true) / Slack;
-    printf("Start wave Score: %f (x2 %f)\n", StartWave, StartWave * 2);
-    f32 AvgSpikeyWave_1 = SyncScore(Samples, 437374, Slack, Wav.channels, true) / Slack;
-    printf("Spikey wave Score: %f (x2 %f)\n", AvgSpikeyWave_1, AvgSpikeyWave_1 - StartWave);
-    f32 AvgScreechWave_1 = SyncScore(Samples, 985055, Slack, Wav.channels, true) / Slack;
-    printf("Screech wave Score: %f (x2 %f)\n", AvgScreechWave_1, AvgScreechWave_1 - AvgSpikeyWave_1);
-    f32 AvgBeepWave_1 = SyncScore(Samples, 1366553, Slack, Wav.channels, true) / Slack;
-    printf("Beep wave Score: %f (x2 %f)\n", AvgBeepWave_1, AvgBeepWave_1 - AvgScreechWave_1);
-    f32 FirstImage_1 = SyncScore(Samples, 1383413, Slack, Wav.channels, true) / Slack;
-    printf("First Image wave Score: %f (x2 %f)\n", FirstImage_1, FirstImage_1 - AvgBeepWave_1);
-    // f32 RandImage_1 = SyncScore(Samples, 3433363, 1000, Wav.channels, true) / 1000;
-    // printf("Rand Image wave Score: %f\n", RandImage_1);
-    // f32 AvgBeepWave_2 = SyncScore(Samples, 3539094, 1000, Wav.channels, true) / 1000;
-    // printf("Beep wave 2 Score: %f\n", AvgBeepWave_2);
-    // f32 AvgBlankWave_1 = SyncScore(Samples, 896063, 50000, Wav.channels, true) / 50000.0f;
-    // printf("blank Score: %f\n", AvgBlankWave_1);
-
-
-    /*
-    {
-        i32 Index = 0;
-        f32 Value = 0;
-        u32 StartingOffset = 0;//ImageMappings[0].LeftChannelOffset;
-        while (1)
-        {
-            if (FindNegativeTroughPeak(Samples, StartingOffset, SamplesPerLine, Wav, true, &Index, &Value))
-            {
-                printf("Negative Peak Index: %d (%u) | %f\n", Index, StartingOffset+Index, Value);
-            }
-
-            StartingOffset += Wav.sampleRate * (1.0/120.0);
-        }
-    }
-    */
-
+    
     while (!WindowShouldClose())
     {
         UpdateMusicStream(GoldenWav);
-
+        
+        u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
         for (u32 i = 0; i < NumMappings; i++)
         {
             ImageMapping M = ImageMappings[i];
@@ -944,11 +853,8 @@ i32 main(void)
 
                 JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
 
-                // Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true);
-                // Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false);
                 Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
                 Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
-
 
                 u64 MusicPosition = M.LeftChannelOffset < M.RightChannelOffset ? M.LeftChannelOffset : M.RightChannelOffset;
                 SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
@@ -974,7 +880,6 @@ i32 main(void)
             {
                 Player_LeftChannel.ScanLine = 0;
                 Player_LeftChannel.Cursor = MusicCursor;
-                // printf("left finished\n");
                 break;
             }
         }
@@ -984,7 +889,6 @@ i32 main(void)
             f32 Peak = SyncPeak(Samples, Player_RightChannel.Cursor, SamplesPerLine, Wav.channels, false);
             Player_RightChannel.Threshold = Peak/SamplesPerLine;
         }
-
 
         while (Player_RightChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
@@ -996,7 +900,6 @@ i32 main(void)
             {
                 Player_RightChannel.ScanLine = 0;
                 Player_RightChannel.Cursor = MusicCursor;
-                // Player_RightChannel.bFinished = true;
                 break;
             }
         }
@@ -1019,31 +922,22 @@ i32 main(void)
         i32 TimeCenterX  = BaseLocationX + (i32)((690 + Scan_Left.width * 1.5f) / 2);
         DrawText(TimeText, TimeCenterX - MeasureText(TimeText, TimeFontSize) / 2, BaseLocationY-50, TimeFontSize, WHITE);
 
-        i32 LeftChannelIndex  = GetChannelIndexFromSampleOffset(MusicCursor, true);
-        i32 RightChannelIndex = GetChannelIndexFromSampleOffset(MusicCursor, false);
+        // DrawText("Left Channel", BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
+        DrawText(GetImageNameFromSampleOffset(Player_LeftChannel.Cursor, true), BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
 
-        if (LeftChannelIndex > -1)
-        {
-            // DrawText("Left Channel", BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
-            DrawText(ImageMappings[LeftChannelIndex].LeftImageName, BaseLocationX+(Scan_Left.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
-        }
-
-        if (RightChannelIndex > -1)
-        {
-            // DrawText("Right Channel", BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
-            DrawText(ImageMappings[RightChannelIndex].RightImageName, BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
-        }
+        // DrawText("Right Channel", BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 100, 14, WHITE);
+        DrawText(GetImageNameFromSampleOffset(Player_RightChannel.Cursor, false), BaseLocationX+800+(Scan_Right.width*1.5f)/4, BaseLocationY - 80, 50, WHITE);
 
         static u32 NumSamplesToDraw = 6;
         if (IsKeyPressed(KEY_UP))
         {
             NumSamplesToDraw++;
-            printf("%u\n", NumSamplesToDraw);
+            // printf("%u\n", NumSamplesToDraw);
         }
         if (IsKeyPressed(KEY_DOWN))
         {
             NumSamplesToDraw--;
-            printf("%u\n", NumSamplesToDraw);
+            // printf("%u\n", NumSamplesToDraw);
         }
 
         DrawChannelWaveform(Samples, Wav, MusicCursor, SamplesPerLine, NumSamplesToDraw,

@@ -5,6 +5,7 @@ Assembly GoldenDecoder
 Icon Voyager_Golden_Record
 
 BuildDirectory        Build/%Mode
+IntermediateDirectory Intermediate/%Mode
 
 if mode == release
 {
@@ -19,7 +20,7 @@ if mode == debug
 }
 
 SourceFiles         Source/Program
-SourceFiles:windows resources/GoldenDecoder_WindowIcon
+SourceFiles:windows Resources/GoldenDecoder_WindowIcon
 
 Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
 Linker.Flags            $SharedLinkerFlags
