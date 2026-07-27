@@ -34,8 +34,11 @@ enum
 typedef struct
 {
     KeyboardKey Key;
+    KeyboardKey ShiftKey;
     const char* LeftImageName;
+    const char* LeftImagePhotographer;
     const char* RightImageName;
+    const char* RightImagePhotographer;
     u32 LeftChannelOffset;
     u32 RightChannelOffset;
     EImageColorChannel LeftColorChannel;
@@ -59,91 +62,100 @@ typedef struct
 
 // TODO: make these clickable
 // TODO: slow mo scanline slider, so you can see the vertical pixel lines filling in realtime
+// TODO: space bar to pause/play
+// TODO: show photographer name and description for each image.
+// TODO: clickable web links to go to original source and an auxiliary links
+// TODO: quote at beginning of the experience. tap any key to skip to the decoding
+// TODO: optional to play "the sounds of earth" instead of the noise
+// TODO: google maps coordinates of where pictures were taken
+// TODO: export to jpeg
 
-// names referenced from: https://en.wikipedia.org/wiki/Contents_of_the_Voyager_Golden_Record
+// names referenced from: 
+//    https://science.nasa.gov/mission/voyager/golden-record-contents/images/
+//    https://en.wikipedia.org/wiki/Contents_of_the_Voyager_Golden_Record
+
 // yes i really did type this by hand
 ImageMapping ImageMappings[] =
 {
-    {.Key = KEY_ONE,   .LeftImageName = "Calibration Circle",                    .RightImageName = "Beach (Red)",                  .LeftChannelOffset = 1375283,  .RightChannelOffset = 1490087,  .LeftColorChannel = Mono,  .RightColorChannel = Red  },
-    {.Key = KEY_TWO,   .LeftImageName = "Milky Way Location",                    .RightImageName = "Beach (Green)",                .LeftChannelOffset = 1905722,  .RightChannelOffset = 1984822,  .LeftColorChannel = Mono,  .RightColorChannel = Green},
-    {.Key = KEY_THREE, .LeftImageName = "Math Definitions",                      .RightImageName = "Beach (RGB)",                  .LeftChannelOffset = 2446590,  .RightChannelOffset = 2505754,  .LeftColorChannel = Mono,  .RightColorChannel = Blue },
-    {.Key = KEY_FOUR,  .LeftImageName = "Physics Definitions",                   .RightImageName = "Tree Toad",                    .LeftChannelOffset = 2968481,  .RightChannelOffset = 3033022,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_FIVE,  .LeftImageName = "Solar System Parameters 1",             .RightImageName = "Crocodile",                    .LeftChannelOffset = 3483550,  .RightChannelOffset = 3546161,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_SIX,   .LeftImageName = "Solar System Parameters 2",             .RightImageName = "Eagle",                        .LeftChannelOffset = 3998630,  .RightChannelOffset = 4051738,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_SEVEN, .LeftImageName = "The Sun (Hale Observations)",           .RightImageName = "Zebras",                       .LeftChannelOffset = 4500698,  .RightChannelOffset = 4544028,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_EIGHT, .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 4984064,  .RightChannelOffset = 5036615,  .LeftColorChannel = Red,   .RightColorChannel = Red},
-    {.Key = KEY_NINE,  .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 5467791,  .RightChannelOffset = 5543004,  .LeftColorChannel = Green, .RightColorChannel = Green},
-    {.Key = KEY_NULL,  .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 5955425,  .RightChannelOffset = 6039902,  .LeftColorChannel = Blue,  .RightColorChannel = Blue},
-    {.Key = KEY_ZERO,  .LeftImageName = "Mercury",                               .RightImageName = "Sketch of Bushmen Hunters",    .LeftChannelOffset = 6582824,  .RightChannelOffset = 6570356,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_Q,     .LeftImageName = "Mars",                                  .RightImageName = "Bushmen Hunters",              .LeftChannelOffset = 7091405,  .RightChannelOffset = 7067636,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_W,     .LeftImageName = "Jupiter",                               .RightImageName = "Man from Guatemala",           .LeftChannelOffset = 7515711,  .RightChannelOffset = 7573015,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_E,     .LeftImageName = "Earth (Red)",                           .RightImageName = "Dancer from Bali",             .LeftChannelOffset = 8137606,  .RightChannelOffset = 8086172,  .LeftColorChannel = Red,   .RightColorChannel = Mono},
-    {.Key = KEY_R,     .LeftImageName = "Earth (Green)",                         .RightImageName = "Andean Girls",                 .LeftChannelOffset = 8635865,  .RightChannelOffset = 8592929,  .LeftColorChannel = Green, .RightColorChannel = Mono},
-    {.Key = KEY_T,     .LeftImageName = "Earth (RGB)",                           .RightImageName = "Thailand Master Craftsman",    .LeftChannelOffset = 9142947,  .RightChannelOffset = 9089631,  .LeftColorChannel = Blue,  .RightColorChannel = Mono},
-    {.Key = KEY_Y,     .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Elephant",                     .LeftChannelOffset = 9636814,  .RightChannelOffset = 9600311,  .LeftColorChannel = Red,   .RightColorChannel = Mono},
-    {.Key = KEY_U,     .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Old Man Smoking Cigarette",    .LeftChannelOffset = 10113065, .RightChannelOffset = 10102506, .LeftColorChannel = Green, .RightColorChannel = Mono},
-    {.Key = KEY_I,     .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Old Man with Dog and Flowers", .LeftChannelOffset = 10615931, .RightChannelOffset = 10613180, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
-    {.Key = KEY_O,     .LeftImageName = "Chemical Definitions",                  .RightImageName = "Mountain climber",             .LeftChannelOffset = 11130449, .RightChannelOffset = 11125216, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_P,     .LeftImageName = "DNA Structure",                         .RightImageName = "Gymnast (Cathy Rigby)",        .LeftChannelOffset = 11611579, .RightChannelOffset = 11631241, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_A,     .LeftImageName = "DNA Structure (Magnified)",             .RightImageName = "Sprinters (Valeriy Borzov of the U.S.S.R. in lead)", .LeftChannelOffset = 12112408, .RightChannelOffset = 12131300, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_S,     .LeftImageName = "Cell Division",                         .RightImageName = "Schoolroom (Japan)",           .LeftChannelOffset = 12618348, .RightChannelOffset = 12643425, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_D,     .LeftImageName = "Anatomy 1 (Skeleton & Muscles, Front)", .RightImageName = "Children with globe (U.N. Intl. School)",                             .LeftChannelOffset = 13155793, .RightChannelOffset = 13158591, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_F,     .LeftImageName = "Anatomy 2 (Skeleton & Muscles, Back)",  .RightImageName = "Cotton harvest",               .LeftChannelOffset = 13667626, .RightChannelOffset = 13664412, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_G,     .LeftImageName = "Anatomy 3 (Lungs & Kidneys, Back)",     .RightImageName = "Grape picker",                 .LeftChannelOffset = 14169422, .RightChannelOffset = 14179145, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_H,     .LeftImageName = "Anatomy 4 (Lungs & Kidneys, Front)",    .RightImageName = "Supermarket",                  .LeftChannelOffset = 14671718, .RightChannelOffset = 14694679, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_J,     .LeftImageName = "Anatomy 5 (Internal Organs, Back)",     .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 15186181, .RightChannelOffset = 15192711, .LeftColorChannel = Mono,  .RightColorChannel = Red},
-    {.Key = KEY_K,     .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 15679226, .RightChannelOffset = 15692985, .LeftColorChannel = Red,   .RightColorChannel = Green},
-    {.Key = KEY_L,     .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 16190230, .RightChannelOffset = 16224544, .LeftColorChannel = Green, .RightColorChannel = Blue},
-    {.Key = KEY_Z,     .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Fishing boat with nets (Greece)", .LeftChannelOffset = 16705655, .RightChannelOffset = 16725175, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
-    {.Key = KEY_X,     .LeftImageName = "Anatomy 7 (Ribcage)",                   .RightImageName = "Cooking Fish",                 .LeftChannelOffset = 17189421, .RightChannelOffset = 17242071, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_C,     .LeftImageName = "Anatomy 8 (Muscles)",                   .RightImageName = "Chinese Dinner Party",         .LeftChannelOffset = 17738425, .RightChannelOffset = 17748573, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_V,     .LeftImageName = "Human Sex Organs (Male & Female)",      .RightImageName = "Licking, eating and drinking", .LeftChannelOffset = 18257464, .RightChannelOffset = 18250532, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_B,     .LeftImageName = "Conception (Diagram)",                  .RightImageName = "Great Wall of China",          .LeftChannelOffset = 18765554, .RightChannelOffset = 18747087, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_N,     .LeftImageName = "Conception",                            .RightImageName = "House construction (Cameroon)",.LeftChannelOffset = 19277607, .RightChannelOffset = 19244296, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_M,     .LeftImageName = "Fertilized Ovum",                       .RightImageName = "Construction scene (Amish country)", .LeftChannelOffset = 19788079, .RightChannelOffset = 19745141, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_COMMA, .LeftImageName = "Fetus (Diagram)",                       .RightImageName = "House (Ethiopia)",             .LeftChannelOffset = 20291384, .RightChannelOffset = 20251104, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_PERIOD,.LeftImageName = "Fetus",                                 .RightImageName = "House (New England)",          .LeftChannelOffset = 20837565, .RightChannelOffset = 20753634, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_SLASH, .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 21336797, .RightChannelOffset = 21271237, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 21854824, .RightChannelOffset = 21770903, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 22366812, .RightChannelOffset = 22271748, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 22880833, .RightChannelOffset = 22784699, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 23397216, .RightChannelOffset = 23273941, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 23914636, .RightChannelOffset = 23793232, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 24433828, .RightChannelOffset = 24280027, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 24953317, .RightChannelOffset = 24788532, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 25442468, .RightChannelOffset = 25301194, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 25948659, .RightChannelOffset = 25815519, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 26459594, .RightChannelOffset = 26333242, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 26977596, .RightChannelOffset = 26847380, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 27497919, .RightChannelOffset = 27377225, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 27990289, .RightChannelOffset = 27885032, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 28491246, .RightChannelOffset = 28404984, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 28984353, .RightChannelOffset = 28930111, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 29484247, .RightChannelOffset = 29431324, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 29992082, .RightChannelOffset = 29911490, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 30490384, .RightChannelOffset = 30419938, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 30991505, .RightChannelOffset = 30930390, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 31501703, .RightChannelOffset = 31439778, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 31986826, .RightChannelOffset = 31939644, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 32486942, .RightChannelOffset = 32440627, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 32978679, .RightChannelOffset = 32945392, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 33489509, .RightChannelOffset = 33469402, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 34005577, .RightChannelOffset = 33984056, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 34523161, .RightChannelOffset = 34490520, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 35015433, .RightChannelOffset = 34999599, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 35537491, .RightChannelOffset = 35520804, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 36022479, .RightChannelOffset = 36038801, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 36547852, .RightChannelOffset = 36582381, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 37076695, .RightChannelOffset = 37093950, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 37669499, .RightChannelOffset = 37654503, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 38155490, .RightChannelOffset = 38150712, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 38667959, .RightChannelOffset = 38655546, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 39157401, .RightChannelOffset = 39177643, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 39651843, .RightChannelOffset = 39671543, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 40149135, .RightChannelOffset = 40171212, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
-    {.Key = KEY_NULL,  .LeftImageName = "",                                      .RightImageName = "",                             .LeftChannelOffset = 40702862, .RightChannelOffset = 40670528, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_ONE,         .LeftImageName = "Calibration Circle",                    .RightImageName = "School of fish",               .LeftChannelOffset = 1375283,  .RightChannelOffset = 1490087,  .LeftColorChannel = Mono,  .RightColorChannel = Red  },
+    {.Key = KEY_TWO,         .LeftImageName = "Milky Way Location",                    .RightImageName = "School of fish",               .LeftChannelOffset = 1905722,  .RightChannelOffset = 1984822,  .LeftColorChannel = Mono,  .RightColorChannel = Green},
+    {.Key = KEY_THREE,       .LeftImageName = "Math Definitions",                      .RightImageName = "School of fish",               .LeftChannelOffset = 2446590,  .RightChannelOffset = 2505754,  .LeftColorChannel = Mono,  .RightColorChannel = Blue },
+    {.Key = KEY_FOUR,        .LeftImageName = "Physics Definitions",                   .RightImageName = "Tree Toad",                    .LeftChannelOffset = 2968481,  .RightChannelOffset = 3033022,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_FIVE,        .LeftImageName = "Solar System Parameters 1",             .RightImageName = "Crocodile",                    .LeftChannelOffset = 3483550,  .RightChannelOffset = 3546161,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_SIX,         .LeftImageName = "Solar System Parameters 2",             .RightImageName = "Eagle",                        .LeftChannelOffset = 3998630,  .RightChannelOffset = 4051738,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_SEVEN,       .LeftImageName = "The Sun (Hale Observations)",           .RightImageName = "Zebras",                       .LeftChannelOffset = 4500698,  .RightChannelOffset = 4544028,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_EIGHT,       .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 4984064,  .RightChannelOffset = 5036615,  .LeftColorChannel = Red,   .RightColorChannel = Red},
+    {.Key = KEY_NINE,        .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 5467791,  .RightChannelOffset = 5543004,  .LeftColorChannel = Green, .RightColorChannel = Green},
+    {.Key = KEY_NULL,        .LeftImageName = "Solar Spectrum",                        .RightImageName = "Jane Goodall & Chimps",        .LeftChannelOffset = 5955425,  .RightChannelOffset = 6039902,  .LeftColorChannel = Blue,  .RightColorChannel = Blue},
+    {.Key = KEY_ZERO,        .LeftImageName = "Mercury",                               .RightImageName = "Sketch of Bushmen Hunters",    .LeftChannelOffset = 6582824,  .RightChannelOffset = 6570356,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_Q,           .LeftImageName = "Mars",                                  .RightImageName = "Bushmen Hunters",              .LeftChannelOffset = 7091405,  .RightChannelOffset = 7067636,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_W,           .LeftImageName = "Jupiter",                               .RightImageName = "Man from Guatemala",           .LeftChannelOffset = 7515711,  .RightChannelOffset = 7573015,  .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_E,           .LeftImageName = "Earth",                                 .RightImageName = "Dancer from Bali",             .LeftChannelOffset = 8137606,  .RightChannelOffset = 8086172,  .LeftColorChannel = Red,   .RightColorChannel = Mono},
+    {.Key = KEY_R,           .LeftImageName = "Earth",                                 .RightImageName = "Andean Girls",                 .LeftChannelOffset = 8635865,  .RightChannelOffset = 8592929,  .LeftColorChannel = Green, .RightColorChannel = Mono},
+    {.Key = KEY_T,           .LeftImageName = "Earth",                                 .RightImageName = "Thailand Master Craftsman",    .LeftChannelOffset = 9142947,  .RightChannelOffset = 9089631,  .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.Key = KEY_Y,           .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Elephant",                     .LeftChannelOffset = 9636814,  .RightChannelOffset = 9600311,  .LeftColorChannel = Red,   .RightColorChannel = Mono},
+    {.Key = KEY_U,           .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Old Man Smoking Cigarette",    .LeftChannelOffset = 10113065, .RightChannelOffset = 10102506, .LeftColorChannel = Green, .RightColorChannel = Mono},
+    {.Key = KEY_I,           .LeftImageName = "Sinai Peninsula",                       .RightImageName = "Old Man with Dog and Flowers", .LeftChannelOffset = 10615931, .RightChannelOffset = 10613180, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.Key = KEY_O,           .LeftImageName = "Chemical Definitions",                  .RightImageName = "Mountain climber",             .LeftChannelOffset = 11130449, .RightChannelOffset = 11125216, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_P,           .LeftImageName = "DNA Structure",                         .RightImageName = "Gymnast (Cathy Rigby)",        .LeftChannelOffset = 11611579, .RightChannelOffset = 11631241, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_A,           .LeftImageName = "DNA Structure (Magnified)",             .RightImageName = "Sprinters (Valeriy Borzov of the U.S.S.R. in lead)", .LeftChannelOffset = 12112408, .RightChannelOffset = 12131300, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_S,           .LeftImageName = "Cell Division",                         .RightImageName = "Schoolroom (Japan)",           .LeftChannelOffset = 12618348, .RightChannelOffset = 12643425, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_D,           .LeftImageName = "Anatomy 1 (Skeleton & Muscles, Front)", .RightImageName = "Children with globe (U.N. Intl. School)", .LeftChannelOffset = 13155793, .RightChannelOffset = 13158591, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_F,           .LeftImageName = "Anatomy 2 (Skeleton & Muscles, Back)",  .RightImageName = "Cotton harvest",               .LeftChannelOffset = 13667626, .RightChannelOffset = 13664412, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_G,           .LeftImageName = "Anatomy 3 (Lungs & Kidneys, Back)",     .RightImageName = "Grape picker",                 .LeftChannelOffset = 14169422, .RightChannelOffset = 14179145, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_H,           .LeftImageName = "Anatomy 4 (Lungs & Kidneys, Front)",    .RightImageName = "Supermarket",                  .LeftChannelOffset = 14671718, .RightChannelOffset = 14694679, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_J,           .LeftImageName = "Anatomy 5 (Internal Organs, Back)",     .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 15186181, .RightChannelOffset = 15192711, .LeftColorChannel = Mono,  .RightColorChannel = Red},
+    {.Key = KEY_K,           .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 15679226, .RightChannelOffset = 15692985, .LeftColorChannel = Red,   .RightColorChannel = Green},
+    {.Key = KEY_L,           .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Underwater scene with diver and fish", .LeftChannelOffset = 16190230, .RightChannelOffset = 16224544, .LeftColorChannel = Green, .RightColorChannel = Blue},
+    {.Key = KEY_Z,           .LeftImageName = "Anatomy 6 (Internal Organs, Front)",    .RightImageName = "Fishing boat with nets (Greece)", .LeftChannelOffset = 16705655, .RightChannelOffset = 16725175, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.Key = KEY_X,           .LeftImageName = "Anatomy 7 (Ribcage)",                   .RightImageName = "Cooking Fish",                 .LeftChannelOffset = 17189421, .RightChannelOffset = 17242071, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_C,           .LeftImageName = "Anatomy 8 (Muscles)",                   .RightImageName = "Chinese Dinner Party",         .LeftChannelOffset = 17738425, .RightChannelOffset = 17748573, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_V,           .LeftImageName = "Human Sex Organs (Male & Female)",      .RightImageName = "Licking, eating and drinking", .LeftChannelOffset = 18257464, .RightChannelOffset = 18250532, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_B,           .LeftImageName = "Conception (Diagram)",                  .RightImageName = "Great Wall of China",          .LeftChannelOffset = 18765554, .RightChannelOffset = 18747087, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_N,           .LeftImageName = "Conception",                            .RightImageName = "House construction (Cameroon)",.LeftChannelOffset = 19277607, .RightChannelOffset = 19244296, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_M,           .LeftImageName = "Fertilized Ovum",                       .RightImageName = "Construction scene (Amish country)", .LeftChannelOffset = 19788079, .RightChannelOffset = 19745141, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_COMMA,       .LeftImageName = "Fetus (Diagram)",                       .RightImageName = "House (Ethiopia)",             .LeftChannelOffset = 20291384, .RightChannelOffset = 20251104, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_PERIOD,      .LeftImageName = "Fetus",                                 .RightImageName = "House (New England)",          .LeftChannelOffset = 20837565, .RightChannelOffset = 20753634, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_SLASH,       .LeftImageName = "Diagram of male and female",            .RightImageName = "Modern House (Cloudcroft, New Mexico)", .LeftChannelOffset = 21336797, .RightChannelOffset = 21271237, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.Key = KEY_GRAVE,       .LeftImageName = "Birth",                                 .RightImageName = "House interior with artist and fire",   .LeftChannelOffset = 21854824, .RightChannelOffset = 21770903, .LeftColorChannel = Mono,  .RightColorChannel = Red},
+    {.ShiftKey = KEY_ONE,    .LeftImageName = "Nursing mother (Philippines)",          .RightImageName = "House interior with artist and fire",   .LeftChannelOffset = 22366812, .RightChannelOffset = 22271748, .LeftColorChannel = Red,   .RightColorChannel = Green},
+    {.ShiftKey = KEY_TWO,    .LeftImageName = "Nursing mother (Philippines)",          .RightImageName = "House interior with artist and fire",   .LeftChannelOffset = 22880833, .RightChannelOffset = 22784699, .LeftColorChannel = Green, .RightColorChannel = Blue},
+    {.ShiftKey = KEY_THREE,  .LeftImageName = "Nursing mother (Philippines)",          .RightImageName = "Taj Mahal",                             .LeftChannelOffset = 23397216, .RightChannelOffset = 23273941, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_FOUR,   .LeftImageName = "Father and daughter (Malaysia)",        .RightImageName = "English city (Oxford)",                 .LeftChannelOffset = 23914636, .RightChannelOffset = 23793232, .LeftColorChannel = Red,   .RightColorChannel = Mono},
+    {.ShiftKey = KEY_FIVE,   .LeftImageName = "Father and daughter (Malaysia)",        .RightImageName = "Boston",                                .LeftChannelOffset = 24433828, .RightChannelOffset = 24280027, .LeftColorChannel = Green, .RightColorChannel = Mono},
+    {.ShiftKey = KEY_SIX,    .LeftImageName = "Father and daughter (Malaysia)",        .RightImageName = "UN Building (Day)",                       .LeftChannelOffset = 24953317, .RightChannelOffset = 24788532, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_SEVEN,  .LeftImageName = "Group of children",                     .RightImageName = "UN Building (Night)",                   .LeftChannelOffset = 25442468, .RightChannelOffset = 25301194, .LeftColorChannel = Red,   .RightColorChannel = Red},
+    {.ShiftKey = KEY_EIGHT,  .LeftImageName = "Group of children",                     .RightImageName = "UN Building (Night)",                   .LeftChannelOffset = 25948659, .RightChannelOffset = 25815519, .LeftColorChannel = Green, .RightColorChannel = Green},
+    {.ShiftKey = KEY_NULL,   .LeftImageName = "Group of children",                     .RightImageName = "UN Building (Night)",                   .LeftChannelOffset = 26459594, .RightChannelOffset = 26333242, .LeftColorChannel = Blue,  .RightColorChannel = Blue},
+    {.ShiftKey = KEY_NINE,   .LeftImageName = "Diagram of family ages",                .RightImageName = "Sydney Opera House",                    .LeftChannelOffset = 26977596, .RightChannelOffset = 26847380, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_ZERO,   .LeftImageName = "Family portrait",                       .RightImageName = "Artisan with drill",                    .LeftChannelOffset = 27497919, .RightChannelOffset = 27377225, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_Q,      .LeftImageName = "Diagram of continental drift (derived from LAGEOS plaque)", .RightImageName = "Factory interior",  .LeftChannelOffset = 27990289, .RightChannelOffset = 27885032, .LeftColorChannel = Mono,  .RightColorChannel = Red},
+    {.ShiftKey = KEY_W,      .LeftImageName = "Structure of the Earth",                .RightImageName = "Factory interior",                      .LeftChannelOffset = 28491246, .RightChannelOffset = 28404984, .LeftColorChannel = Mono,  .RightColorChannel = Green},
+    {.ShiftKey = KEY_E,      .LeftImageName = "Heron Island (Great Barrier Reef of Australia)", .RightImageName = "Factory interior",             .LeftChannelOffset = 28984353, .RightChannelOffset = 28930111, .LeftColorChannel = Mono,  .RightColorChannel = Blue},
+    {.ShiftKey = KEY_R,      .LeftImageName = "Seashore (Cape Neddick, Maine)",        .RightImageName = "Museum",                                .LeftChannelOffset = 29484247, .RightChannelOffset = 29431324, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_T,      .LeftImageName = "Snake River and Grand Tetons",          .RightImageName = "X-ray of hand",                         .LeftChannelOffset = 29992082, .RightChannelOffset = 29911490, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_Y,      .LeftImageName = "Sand dunes",                            .RightImageName = "Woman with microscope (Somalia)",       .LeftChannelOffset = 30490384, .RightChannelOffset = 30419938, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_U,      .LeftImageName = "Monument Valley",                       .RightImageName = "Street scene (Pakistan)",               .LeftChannelOffset = 30991505, .RightChannelOffset = 30930390, .LeftColorChannel = Red,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_I,      .LeftImageName = "Monument Valley",                       .RightImageName = "Rush hour traffic (Thailand)[",         .LeftChannelOffset = 31501703, .RightChannelOffset = 31439778, .LeftColorChannel = Green,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_O,      .LeftImageName = "Monument Valley",                       .RightImageName = "Modern highway (Ithaca, New York)",     .LeftChannelOffset = 31986826, .RightChannelOffset = 31939644, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_P,      .LeftImageName = "Forest scene with mushrooms",           .RightImageName = "Golden Gate Bridge",                    .LeftChannelOffset = 32486942, .RightChannelOffset = 32440627, .LeftColorChannel = Red,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_A,      .LeftImageName = "Forest scene with mushrooms",           .RightImageName = "Train (United Aircraft Corporation Turbotrain)", .LeftChannelOffset = 32978679, .RightChannelOffset = 32945392, .LeftColorChannel = Green,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_S,      .LeftImageName = "Forest scene with mushrooms",           .RightImageName = "Airplane in flight",                    .LeftChannelOffset = 33489509, .RightChannelOffset = 33469402, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_D,      .LeftImageName = "Leaf (Fragaria)",                       .RightImageName = "Airport (Toronto)",                     .LeftChannelOffset = 34005577, .RightChannelOffset = 33984056, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_F,      .LeftImageName = "Autumn Fallen leaves",                  .RightImageName = "Antarctic expedition (Commonwealth Trans-Antarctic Expedition)", .LeftChannelOffset = 34523161, .RightChannelOffset = 34490520, .LeftColorChannel = Red,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_G,      .LeftImageName = "Autumn Fallen leaves",                  .RightImageName = "Radio telescope (Westerbork)",          .LeftChannelOffset = 35015433, .RightChannelOffset = 34999599, .LeftColorChannel = Green,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_H,      .LeftImageName = "Autumn Fallen leaves",                  .RightImageName = "Radio telescope (Arecibo)",             .LeftChannelOffset = 35537491, .RightChannelOffset = 35520804, .LeftColorChannel = Blue,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_J,      .LeftImageName = "Snowflakes over Sequoia",               .RightImageName = "Page of book (Newton, On the System of the World)", .LeftChannelOffset = 36022479, .RightChannelOffset = 36038801, .LeftColorChannel = Red,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_K,      .LeftImageName = "Snowflakes over Sequoia",               .RightImageName = "Astronaut in space (Ed White)",         .LeftChannelOffset = 36547852, .RightChannelOffset = 36582381, .LeftColorChannel = Green,  .RightColorChannel = Red},
+    {.ShiftKey = KEY_L,      .LeftImageName = "Snowflakes over Sequoia",               .RightImageName = "Astronaut in space (Ed White)",         .LeftChannelOffset = 37076695, .RightChannelOffset = 37093950, .LeftColorChannel = Blue,  .RightColorChannel = Green},
+    {.ShiftKey = KEY_Z,      .LeftImageName = "Tree with daffodils",                   .RightImageName = "Astronaut in space (Ed White)",         .LeftChannelOffset = 37669499, .RightChannelOffset = 37654503, .LeftColorChannel = Red,  .RightColorChannel = Blue},
+    {.ShiftKey = KEY_X,      .LeftImageName = "Tree with daffodils",                   .RightImageName = "Titan Centaur launch",                  .LeftChannelOffset = 38155490, .RightChannelOffset = 38150712, .LeftColorChannel = Green,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_C,      .LeftImageName = "Tree with daffodils",                   .RightImageName = "Sunset with birds",                     .LeftChannelOffset = 38667959, .RightChannelOffset = 38655546, .LeftColorChannel = Blue,  .RightColorChannel = Red},
+    {.ShiftKey = KEY_V,      .LeftImageName = "Flying insect with flowers (Ichneumonidae)", .RightImageName = "Sunset with birds",                .LeftChannelOffset = 39157401, .RightChannelOffset = 39177643, .LeftColorChannel = Mono,  .RightColorChannel = Green},
+    {.ShiftKey = KEY_B,      .LeftImageName = "Diagram of vertebrate evolution",       .RightImageName = "Sunset with birds",                     .LeftChannelOffset = 39651843, .RightChannelOffset = 39671543, .LeftColorChannel = Mono,  .RightColorChannel = Blue},
+    {.ShiftKey = KEY_N,      .LeftImageName = "Seashell (Xancidae)",                   .RightImageName = "String Quartet (Quartetto Italiano)",   .LeftChannelOffset = 40149135, .RightChannelOffset = 40171212, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
+    {.ShiftKey = KEY_M,      .LeftImageName = "Dolphins",                              .RightImageName = "Violin with music score (Cavatina)",    .LeftChannelOffset = 40702862, .RightChannelOffset = 40670528, .LeftColorChannel = Mono,  .RightColorChannel = Mono},
 };
-
 
 i32 GetChannelIndexFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
 {
@@ -268,8 +280,7 @@ bool FindNegativeTroughPeak(f32* Samples, u32 SampleOffset, u32 SearchLength, Wa
 {
     bool bFound = false;
 
-    // u32 SamplesPerLine = Wav.sampleRate * (1.0/120.0);
-    u32 SamplesCount   = Wav.frameCount / Wav.channels;
+    u32 SamplesCount = Wav.frameCount;
 
     const f32 FallThreshold = -0.03f;
     const u32 DebounceSamples = 2;
@@ -362,16 +373,15 @@ bool FindNegativeTroughPeak(f32* Samples, u32 SampleOffset, u32 SearchLength, Wa
     return bFound;
 }
 
-void DetectScanTrigger(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel, u32* OutIndex, f32* OutValue)
+void DetectScanTrigger(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool bLeftChannel, i32* OutIndex, f32* OutValue)
 {
     bool bFound = false;
 
-    // u32 SamplesPerLine = Wav.sampleRate * (1.0/120.0);
-    u32 SamplesCount   = Wav.frameCount / Wav.channels;
+    u32 SamplesCount = Wav.frameCount;
 
-    const f32 FallThreshold = -0.025f;
+    const f32 FallThreshold = 0.04f;
     const u32 DebounceSamples = 3;
-    const f32 NoiseHisteresis = 0.002f;
+    const f32 NoiseHisteresis = 0.001f;
 
     u32 State = IDLE;
     u32 StableCount = 0;
@@ -390,13 +400,13 @@ void DetectScanTrigger(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wa
 
         f32 Current  = Samples[(SampleOffset+i)     * Wav.channels + (bLeftChannel ? 0 : 1)];
         f32 Next     = Samples[(SampleOffset+(i+1)) * Wav.channels + (bLeftChannel ? 0 : 1)];
-        f32 Diff     = Next - Current;
+        f32 Diff     = fabsf(Next - Current);
 
         switch (State)
         {
             case IDLE:
             {
-                if (Diff < FallThreshold)
+                if (Diff > FallThreshold)
                 {
                     TroughSampleIndex = i;
                     TroughSampleValue = Current;
@@ -780,7 +790,7 @@ void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
     u32 CursorStart = MusicCursor - Window;
     u32 CursorEnd   = MusicCursor;
 
-    u32 TriggerRel = 0;
+    i32 TriggerRel = 0;
     DetectScanTrigger(Samples, CursorStart, Window, Wav, bLeftChannel, &TriggerRel, NULL);
 
     if (TriggerRel > 0)
@@ -836,7 +846,6 @@ i32 main(void)
 
     Player_LeftChannel.Threshold = SyncScore(Samples, Player_LeftChannel.ImageOffset, Slack, Wav.channels, true) / Slack;
     Player_RightChannel.Threshold = SyncScore(Samples, Player_RightChannel.ImageOffset, Slack, Wav.channels, false) / Slack;
-
     
     while (!WindowShouldClose())
     {
@@ -846,20 +855,39 @@ i32 main(void)
         for (u32 i = 0; i < NumMappings; i++)
         {
             ImageMapping M = ImageMappings[i];
-            if (IsKeyPressed(M.Key))
+            bool bIsShift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+            if (bIsShift)
             {
-                // DecodeImage(Wav, M.LeftChannelOffset, &Scan_Left, ScanTexture_Left, true);
-                // DecodeImage(Wav, M.RightChannelOffset, &Scan_Right, ScanTexture_Right, false);
+                if (IsKeyPressed(M.ShiftKey))
+                {
+                    JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
 
-                JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
+                    Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
+                    Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
 
-                Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
-                Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
+                    u64 MusicPosition = M.LeftChannelOffset < M.RightChannelOffset ? M.LeftChannelOffset : M.RightChannelOffset;
+                    SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
 
-                u64 MusicPosition = M.LeftChannelOffset < M.RightChannelOffset ? M.LeftChannelOffset : M.RightChannelOffset;
-                SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
-
-                break;
+                    break;
+                }
+            }
+            else
+            {
+                if (IsKeyPressed(M.Key))
+                {
+                    // DecodeImage(Wav, M.LeftChannelOffset, &Scan_Left, ScanTexture_Left, true);
+                    // DecodeImage(Wav, M.RightChannelOffset, &Scan_Right, ScanTexture_Right, false);
+    
+                    JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
+    
+                    Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
+                    Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
+    
+                    u64 MusicPosition = M.LeftChannelOffset < M.RightChannelOffset ? M.LeftChannelOffset : M.RightChannelOffset;
+                    SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
+    
+                    break;
+                }
             }
         }
 
