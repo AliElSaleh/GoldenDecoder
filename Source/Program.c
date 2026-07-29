@@ -32,9 +32,16 @@ const float ImageScale = 1.8f;
 const i32 TitleFontSize = 65;
 const i32 BodyFontSize  = 20;
 const i32 SmallFontSize = 18;
+// 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
+const i32 MenuFontSize      = 20;
+const i32 MenuTitleFontSize = 30;
 
-// IBM Plex Mono carries its own advances, so no extra tracking
 const f32 FontSpacing = 0.0f;
+
+const f32 RevealCharsPerSecond = 15.0f;
+const f32 RevealInstantSeconds = 1000.0f;
+
+const f32 MenuExitHoldSeconds = 1.0f;
 
 typedef u8 EImageColorChannel;
 enum
@@ -45,12 +52,22 @@ enum
     Blue  = 3
 };
 
+typedef u8 EImageSourceType;
+enum
+{
+    Unknown    = 0,
+    Photograph = 1,
+    Book       = 2,
+    Event      = 3,
+};
+
 typedef struct
 {
     const char* Name;
     const char* Source;
     const char* Description;
     EImageColorChannel ColorChannel;
+    EImageSourceType SourceType; // TODO
     u32 SampleOffset;
 } ImageMetaData;
 
@@ -61,6 +78,12 @@ typedef struct
     ImageMetaData LeftImage;
     ImageMetaData RightImage;
 } ImageMapping;
+
+typedef struct
+{
+    i32 MappingIndex;
+    f32 Elapsed;
+} TextReveal;
 
 typedef struct
 {
@@ -806,7 +829,7 @@ void JumpToMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index)
     Right->ScanLine = 0;
 }
 
-// names like "Underwater scene with diver and fish" are wider than a column at the
+// long names like "Underwater scene with diver and fish" are wider than a column at the
 // full title size, so step the size down until it fits rather than let it run into
 // the neighbouring channel
 i32 FitFontSize(Font TextFont, const char* Text, i32 MaxWidth, i32 MaxFontSize, i32 MinFontSize)
@@ -821,7 +844,48 @@ i32 FitFontSize(Font TextFont, const char* Text, i32 MaxWidth, i32 MaxFontSize, 
     return Result;
 }
 
-void DrawChannelMetaData(Font TitleFont, Font BodyFont, ImageMetaData Data,
+// restart the reveal whenever the channel moves onto a different image
+void UpdateTextReveal(TextReveal* Reveal, i32 MappingIndex, EImageColorChannel ColorChannel, f32 DeltaTime)
+{
+    if (Reveal->MappingIndex != MappingIndex)
+    {
+        Reveal->MappingIndex = MappingIndex;
+
+        bool bLaterColorPass = (ColorChannel == Green) || (ColorChannel == Blue);
+
+        Reveal->Elapsed = bLaterColorPass ? RevealInstantSeconds : 0.0f;
+    }
+    else
+    {
+        Reveal->Elapsed += DeltaTime;
+    }
+}
+
+i32 TakeRevealedChars(i32* Budget, const char* Text)
+{
+    i32 Length = (i32)TextLength(Text);
+    i32 Result = *Budget < Length ? *Budget : Length;
+
+    *Budget -= Result;
+
+    return Result;
+}
+
+void DrawRevealedText(Font TextFont, const char* Text, i32 CharCount, Vector2 Position, i32 FontSize, Color TextColor)
+{
+    const char* Revealed = TextSubtext(Text, 0, CharCount);
+    DrawTextEx(TextFont, Revealed, Position, FontSize, FontSpacing, TextColor);
+
+    if (CharCount > 0 && CharCount < (i32)TextLength(Text))
+    {
+        i32 CaretWidth = FontSize/10 < 2 ? 2 : FontSize/10;
+        i32 CaretX     = (i32)(Position.x + MeasureTextEx(TextFont, Revealed, FontSize, FontSpacing).x);
+
+        DrawRectangle(CaretX, (i32)Position.y, CaretWidth, FontSize, TextColor);
+    }
+}
+
+void DrawChannelMetaData(Font TitleFont, Font BodyFont, ImageMetaData Data, TextReveal Reveal,
                          i32 ColumnX, i32 ColumnWidth, i32 NameY, i32 SourceY, i32 DescriptionY)
 {
     i32 NameFontSize = FitFontSize(TitleFont, Data.Name, ColumnWidth, TitleFontSize, BodyFontSize);
@@ -829,9 +893,103 @@ void DrawChannelMetaData(Font TitleFont, Font BodyFont, ImageMetaData Data,
     // bottom-align a shrunken title in its slot so the gap below stays constant
     i32 NameOffsetY = TitleFontSize - NameFontSize;
 
-    DrawTextEx(TitleFont, Data.Name,        (Vector2){ColumnX, NameY + NameOffsetY}, NameFontSize, FontSpacing, WHITE);
-    DrawTextEx(BodyFont,  Data.Source,      (Vector2){ColumnX, SourceY},             BodyFontSize, FontSpacing, LIGHTGRAY);
-    DrawTextEx(BodyFont,  Data.Description, (Vector2){ColumnX, DescriptionY},        BodyFontSize, FontSpacing, GRAY);
+    i32 Budget           = (i32)(Reveal.Elapsed * RevealCharsPerSecond);
+    i32 NameChars        = TakeRevealedChars(&Budget, Data.Name);
+    i32 SourceChars      = TakeRevealedChars(&Budget, Data.Source);
+    i32 DescriptionChars = TakeRevealedChars(&Budget, Data.Description);
+
+    DrawRevealedText(TitleFont, Data.Name,        NameChars,        (Vector2){ColumnX, NameY + NameOffsetY}, NameFontSize, WHITE);
+    DrawRevealedText(BodyFont,  Data.Source,      SourceChars,      (Vector2){ColumnX, SourceY},             BodyFontSize, LIGHTGRAY);
+    DrawRevealedText(BodyFont,  Data.Description, DescriptionChars, (Vector2){ColumnX, DescriptionY},        BodyFontSize, GRAY);
+}
+
+// raylib key codes are ascii for everything the table binds, so the character is the code
+const char* GetShortcutKeyLabel(ImageMapping Mapping)
+{
+    if (Mapping.ShiftKey != KEY_NULL) return TextFormat("S-%c", (char)Mapping.ShiftKey);
+    if (Mapping.Key      != KEY_NULL) return TextFormat("  %c", (char)Mapping.Key);
+
+    return "  -";
+}
+
+const char* GetShortcutImageNames(ImageMapping Mapping)
+{
+    return TextFormat("%s / %s",
+                      Mapping.LeftImage.Name  ? Mapping.LeftImage.Name  : "",
+                      Mapping.RightImage.Name ? Mapping.RightImage.Name : "");
+}
+
+// lists every image shortcut, and doubles as the way out of the app
+void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
+{
+    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
+
+    const i32 MenuColumns  = 3;
+    const i32 ColumnGap    = 30;
+    const i32 PanelPadding = 30;
+    const i32 KeyLabelChars = 5;   // "S-1" plus the two spaces separating it from the names
+
+    i32 RowHeight     = MenuFontSize + 6;
+    i32 RowsPerColumn = (NumMappings + MenuColumns - 1) / MenuColumns;
+
+    // monospaced, so one glyph gives the advance for every row
+    f32 CharWidth = MeasureTextEx(RowFont, "M", MenuFontSize, FontSpacing).x;
+
+    i32 LongestChars = 0;
+    for (u32 i = 0; i < NumMappings; i++)
+    {
+        i32 Chars = KeyLabelChars + (i32)TextLength(GetShortcutImageNames(ImageMappings[i]));
+        if (Chars > LongestChars) LongestChars = Chars;
+    }
+
+    i32 ColumnWidth = (i32)(CharWidth * LongestChars);
+    i32 TitleHeight = MenuTitleFontSize + 20;
+    i32 FooterHeight = MenuFontSize + 24;
+
+    i32 PanelWidth  = PanelPadding*2 + ColumnWidth*MenuColumns + ColumnGap*(MenuColumns-1);
+    i32 PanelHeight = PanelPadding*2 + TitleHeight + RowsPerColumn*RowHeight + FooterHeight;
+
+    i32 PanelX = GetScreenWidth()/2  - PanelWidth/2;
+    i32 PanelY = GetScreenHeight()/2 - PanelHeight/2;
+
+    DrawRectangle(PanelX, PanelY, PanelWidth, PanelHeight, Fade(BLACK, 0.93f));
+    DrawRectangleLinesEx((Rectangle){PanelX, PanelY, PanelWidth, PanelHeight}, 2, Fade(WHITE, 0.35f));
+
+    const char* MenuTitle = "IMAGE SHORTCUTS";
+    DrawTextEx(TitleFont, MenuTitle,
+               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(TitleFont, MenuTitle, MenuTitleFontSize, FontSpacing).x*0.5f, PanelY + PanelPadding},
+               MenuTitleFontSize, FontSpacing, WHITE);
+
+    i32 GridY = PanelY + PanelPadding + TitleHeight;
+    for (u32 i = 0; i < NumMappings; i++)
+    {
+        i32 Column = i / RowsPerColumn;
+        i32 Row    = i % RowsPerColumn;
+
+        i32 RowX = PanelX + PanelPadding + Column*(ColumnWidth + ColumnGap);
+        i32 RowY = GridY + Row*RowHeight;
+
+        DrawTextEx(RowFont, GetShortcutKeyLabel(ImageMappings[i]),   (Vector2){RowX, RowY}, MenuFontSize, FontSpacing, WHITE);
+        DrawTextEx(RowFont, GetShortcutImageNames(ImageMappings[i]),
+                   (Vector2){RowX + CharWidth*KeyLabelChars, RowY}, MenuFontSize, FontSpacing, GRAY);
+    }
+
+    // the hold-to-quit progress doubles as the prompt telling you it exists
+    i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
+    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT";
+    DrawTextEx(RowFont, FooterText,
+               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
+               MenuFontSize, FontSpacing, GRAY);
+
+    f32 HoldProgress = EscapeHeld / MenuExitHoldSeconds;
+    if (HoldProgress > 1.0f) HoldProgress = 1.0f;
+
+    i32 BarWidth = PanelWidth - PanelPadding*2;
+    i32 BarX     = PanelX + PanelPadding;
+    i32 BarY     = FooterY + MenuFontSize + 8;
+
+    DrawRectangle(BarX, BarY, BarWidth, 3, Fade(WHITE, 0.15f));
+    DrawRectangle(BarX, BarY, (i32)(BarWidth * HoldProgress), 3, WHITE);
 }
 
 void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
@@ -881,6 +1039,9 @@ i32 main(void)
     InitWindow(ScreenWidth, ScreenHeight, "Golden Decoder");
     SetTargetFPS(0);
 
+    // escape opens the menu instead of closing the window out from under us
+    SetExitKey(KEY_NULL);
+
     i32 BaseLocationX = GetScreenWidth()/2 - LeftOffset;
     i32 BaseLocationY = GetScreenHeight()/2 - 375;
 
@@ -906,6 +1067,7 @@ i32 main(void)
     Font Font_Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf", TitleFontSize, NULL, 0);
     Font Font_Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  BodyFontSize,  NULL, 0);
     Font Font_Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  SmallFontSize, NULL, 0);
+    Font Font_Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  MenuFontSize,  NULL, 0);
 
     SetTextureFilter(Font_Title.texture, TEXTURE_FILTER_BILINEAR);
 
@@ -928,9 +1090,41 @@ i32 main(void)
 
     bool bPaused = false;
 
-    while (!WindowShouldClose())
+    TextReveal Reveal_LeftChannel  = {.MappingIndex = -1};
+    TextReveal Reveal_RightChannel = {.MappingIndex = -1};
+
+    bool bMenuOpen        = false;
+    bool bMenuEscapeArmed = false;
+    bool bQuitRequested   = false;
+    f32  MenuEscapeHeld   = 0.0f;
+
+    while (!WindowShouldClose() && !bQuitRequested)
     {
         UpdateMusicStream(GoldenWav);
+
+        if (!bMenuOpen)
+        {
+            if (IsKeyPressed(KEY_ESCAPE))
+            {
+                bMenuOpen        = true;
+                bMenuEscapeArmed = false;
+                MenuEscapeHeld   = 0.0f;
+            }
+        }
+        else if (!bMenuEscapeArmed)
+        {
+            bMenuEscapeArmed = IsKeyUp(KEY_ESCAPE);
+        }
+        else if (IsKeyDown(KEY_ESCAPE))
+        {
+            MenuEscapeHeld += GetFrameTime();
+            bQuitRequested = MenuEscapeHeld >= MenuExitHoldSeconds;
+        }
+        else if (MenuEscapeHeld > 0.0f)
+        {
+            bMenuOpen      = false;
+            MenuEscapeHeld = 0.0f;
+        }
 
         if (IsKeyPressed(KEY_SPACE))
         {
@@ -962,6 +1156,9 @@ i32 main(void)
                     u64 MusicPosition = M.LeftImage.SampleOffset < M.RightImage.SampleOffset ? M.LeftImage.SampleOffset : M.RightImage.SampleOffset;
                     SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
 
+                    // picking a shortcut gets you out of the way of the image you picked
+                    bMenuOpen = false;
+
                     break;
                 }
             }
@@ -979,6 +1176,9 @@ i32 main(void)
     
                     u64 MusicPosition = M.LeftImage.SampleOffset < M.RightImage.SampleOffset ? M.LeftImage.SampleOffset : M.RightImage.SampleOffset;
                     SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
+
+                    // picking a shortcut gets you out of the way of the image you picked
+                    bMenuOpen = false;
     
                     break;
                 }
@@ -1068,10 +1268,22 @@ i32 main(void)
         i32 LeftColumnX  = BaseLocationX + LeftPadding;
         i32 RightColumnX = BaseLocationX + LeftOffset + LeftPadding;
 
-        DrawChannelMetaData(Font_Title, Font_Body, GetImageMetaDataFromSampleOffste(Player_LeftChannel.Cursor, true),
+        ImageMetaData LeftData  = GetImageMetaDataFromSampleOffste(Player_LeftChannel.Cursor, true);
+        ImageMetaData RightData = GetImageMetaDataFromSampleOffste(Player_RightChannel.Cursor, false);
+
+        // the reveal is part of the presentation, so it holds still with everything else
+        f32 RevealDelta = bPaused ? 0.0f : GetFrameTime();
+
+        UpdateTextReveal(&Reveal_LeftChannel,  GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true),
+                         LeftData.ColorChannel,  RevealDelta);
+
+        UpdateTextReveal(&Reveal_RightChannel, GetChannelIndexFromSampleOffset(Player_RightChannel.Cursor, false),
+                         RightData.ColorChannel, RevealDelta);
+
+        DrawChannelMetaData(Font_Title, Font_Body, LeftData,  Reveal_LeftChannel,
                             LeftColumnX,  ColumnWidth, NameY, SourceY, DescriptionY);
 
-        DrawChannelMetaData(Font_Title, Font_Body, GetImageMetaDataFromSampleOffste(Player_RightChannel.Cursor, false),
+        DrawChannelMetaData(Font_Title, Font_Body, RightData, Reveal_RightChannel,
                             RightColumnX, ColumnWidth, NameY, SourceY, DescriptionY);
 
         // current decode cursor for each channel
@@ -1098,12 +1310,18 @@ i32 main(void)
         DrawChannelWaveform(Samples, Wav, MusicCursor, SamplesPerLine, NumSamplesToDraw,
                             false, BaseLocationX + LeftOffset, BaseLocationY, Scan_Left.width, Scan_Left.height);
 
+        if (bMenuOpen)
+        {
+            DrawShortcutMenu(Font_Title, Font_Menu, MenuEscapeHeld);
+        }
+
         EndDrawing();
     }
 
     UnloadFont(Font_Title);
     UnloadFont(Font_Body);
     UnloadFont(Font_Small);
+    UnloadFont(Font_Menu);
 
     UnloadTexture(ScanTexture_Left);
     UnloadTexture(ScanTexture_Right);
