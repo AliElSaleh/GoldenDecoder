@@ -32,9 +32,13 @@ PostBuild
 {
     Copy
     {
-        #resources/golden2x-32.wav $(BuildDirectory)/resources
         resources/golden.wav $(BuildDirectory)/resources
+
         resources/$(Icon).* $(BuildDirectory)/resources
+
+        resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf $(BuildDirectory)/resources
+        resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BuildDirectory)/resources
+        resources/IBM_Plex_Mono/OFL.txt                 $(BuildDirectory)/resources
     }
 }
 
