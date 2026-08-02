@@ -825,6 +825,20 @@ void JumpToMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index)
     Right->ScanLine = 0;
 }
 
+void SelectMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index,
+                   f32* Samples, u32 SamplesPerLine, Wave Wav, Music GoldenWav)
+{
+    ImageMapping M = ImageMappings[Index];
+
+    JumpToMapping(Left, Right, Index);
+
+    Left->Threshold  = SyncPeak(Samples, Left->ImageOffset,  SamplesPerLine, Wav.channels, true);
+    Right->Threshold = SyncPeak(Samples, Right->ImageOffset, SamplesPerLine, Wav.channels, false);
+
+    u64 MusicPosition = M.LeftImage.SampleOffset < M.RightImage.SampleOffset ? M.LeftImage.SampleOffset : M.RightImage.SampleOffset;
+    SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
+}
+
 // long names like "Underwater scene with diver and fish" are wider than a column at the
 // full title size, so step the size down until it fits rather than let it run into
 // the neighbouring channel
@@ -972,7 +986,7 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
     i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
-    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN";
+    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    LEFT/RIGHT STEP IMAGES";
     DrawTextEx(RowFont, FooterText,
                (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
                MenuFontSize, FontSpacing, GRAY);
@@ -1143,6 +1157,20 @@ i32 main(void)
 
         u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
+        {
+            i32 Step = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
+
+            i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
+
+            if (Target >= 0 && Target < (i32)NumMappings)
+            {
+                SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, SamplesPerLine, Wav, GoldenWav);
+
+                bMenuOpen = false;
+            }
+        }
+
         // ctrl is a window modifier, so it never picks an image out from under the shortcut
         if (!bIsControl)
         {
@@ -1154,17 +1182,11 @@ i32 main(void)
                 {
                     if (IsKeyPressed(M.ShiftKey))
                     {
-                        JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
-    
-                        Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
-                        Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
-    
-                        u64 MusicPosition = M.LeftImage.SampleOffset < M.RightImage.SampleOffset ? M.LeftImage.SampleOffset : M.RightImage.SampleOffset;
-                        SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
-    
+                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, SamplesPerLine, Wav, GoldenWav);
+
                         // picking a shortcut gets you out of the way of the image you picked
                         bMenuOpen = false;
-    
+
                         break;
                     }
                 }
@@ -1172,17 +1194,11 @@ i32 main(void)
                 {
                     if (IsKeyPressed(M.Key))
                     {
-                        JumpToMapping(&Player_LeftChannel, &Player_RightChannel, i);
-        
-                        Player_LeftChannel.Threshold  = SyncPeak(Samples, Player_LeftChannel.ImageOffset, SamplesPerLine, Wav.channels, true);
-                        Player_RightChannel.Threshold = SyncPeak(Samples, Player_RightChannel.ImageOffset, SamplesPerLine, Wav.channels, false);
-        
-                        u64 MusicPosition = M.LeftImage.SampleOffset < M.RightImage.SampleOffset ? M.LeftImage.SampleOffset : M.RightImage.SampleOffset;
-                        SeekMusicStream(GoldenWav, (f32)MusicPosition / (f32)Wav.sampleRate);
-    
+                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, SamplesPerLine, Wav, GoldenWav);
+
                         // picking a shortcut gets you out of the way of the image you picked
                         bMenuOpen = false;
-        
+
                         break;
                     }
                 }
