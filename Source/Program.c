@@ -135,9 +135,9 @@ ImageMapping ImageMappings[] =
     {.Key = KEY_E,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Dancer from Bali",                          .LeftImage.SampleOffset = 8137606,  .RightImage.SampleOffset = 8086172,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Donna Grosvenor"},
     {.Key = KEY_R,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Andean Girls",                              .LeftImage.SampleOffset = 8635865,  .RightImage.SampleOffset = 8592929,  .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Joseph Scherschel"},
     {.Key = KEY_T,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Thailand Master Craftsman",                 .LeftImage.SampleOffset = 9142947,  .RightImage.SampleOffset = 9089631,  .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Dean Conger", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.05f, .DebounceSamples = 2}},
-    {.Key = KEY_Y,           .LeftImage.Name = "Sinai Peninsula",                       .RightImage.Name = "Elephant",                                  .LeftImage.SampleOffset = 9636814,  .RightImage.SampleOffset = 9600311,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Peter Kunstadter"},
-    {.Key = KEY_U,           .LeftImage.Name = "Sinai Peninsula",                       .RightImage.Name = "Old Man Smoking",                           .LeftImage.SampleOffset = 10113065, .RightImage.SampleOffset = 10102506, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Jonathon Blair", .RightImage.Description = "Turkey"},
-    {.Key = KEY_I,           .LeftImage.Name = "Sinai Peninsula",                       .RightImage.Name = "Old Man with Dog and Flowers",              .LeftImage.SampleOffset = 10615931, .RightImage.SampleOffset = 10613180, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Bruce Baumann"},
+    {.Key = KEY_Y,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Elephant",                                  .LeftImage.SampleOffset = 9636814,  .RightImage.SampleOffset = 9600311,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Peter Kunstadter"},
+    {.Key = KEY_U,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man Smoking",                           .LeftImage.SampleOffset = 10113065, .RightImage.SampleOffset = 10102506, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Jonathon Blair", .RightImage.Description = "Turkey"},
+    {.Key = KEY_I,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man with Dog & Flowers",                .LeftImage.SampleOffset = 10615931, .RightImage.SampleOffset = 10613180, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Bruce Baumann"},
     {.Key = KEY_O,           .LeftImage.Name = "Chemical Definitions",                  .RightImage.Name = "Mountain Climber",                          .LeftImage.SampleOffset = 11130449, .RightImage.SampleOffset = 11125216, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Frank Drake", .RightImage.Source = "Gaston Rebuffat"},
     {.Key = KEY_P,           .LeftImage.Name = "DNA Structure",                         .RightImage.Name = "Gymnast",                                   .LeftImage.SampleOffset = 11611579, .RightImage.SampleOffset = 11631241, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "Philip Leonian; Sports Illustrated", .RightImage.Description = "Cathy Rigby"},
     {.Key = KEY_A,           .LeftImage.Name = "DNA Structure (Magnified)",             .RightImage.Name = "Sprinters",                                 .LeftImage.SampleOffset = 12112408, .RightImage.SampleOffset = 12131300, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "History of the Olympics, Picturepoint, London", .RightImage.Description = "Valeriy Borzov of the U.S.S.R. in lead"},
@@ -146,9 +146,9 @@ ImageMapping ImageMappings[] =
     {.Key = KEY_F,           .LeftImage.Name = "Anatomy 2",                             .RightImage.Name = "Cotton Harvest",                            .LeftImage.SampleOffset = 13667626, .RightImage.SampleOffset = 13664412, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Skeleton & Muscles, Back", .RightImage.Source = "Howell Walker"},
     {.Key = KEY_G,           .LeftImage.Name = "Anatomy 3",                             .RightImage.Name = "Grape Picker",                              .LeftImage.SampleOffset = 14169422, .RightImage.SampleOffset = 14179145, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Back", .RightImage.Source = "David Moore"},
     {.Key = KEY_H,           .LeftImage.Name = "Anatomy 4",                             .RightImage.Name = "Supermarket",                               .LeftImage.SampleOffset = 14671718, .RightImage.SampleOffset = 14694679, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Front", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Woman eating grapes"},
-    {.Key = KEY_J,           .LeftImage.Name = "Anatomy 5",                             .RightImage.Name = "Underwater Scene with Diver and Fish",      .LeftImage.SampleOffset = 15186181, .RightImage.SampleOffset = 15192711, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Back",  .RightImage.Source = "Jerry Greenberg", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.027f, .DebounceSamples = 3}},
-    {.Key = KEY_K,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver and Fish",      .LeftImage.SampleOffset = 15679226, .RightImage.SampleOffset = 15692985, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
-    {.Key = KEY_L,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver and Fish",      .LeftImage.SampleOffset = 16190230, .RightImage.SampleOffset = 16224544, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
+    {.Key = KEY_J,           .LeftImage.Name = "Anatomy 5",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15186181, .RightImage.SampleOffset = 15192711, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Back",  .RightImage.Source = "Jerry Greenberg", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.027f, .DebounceSamples = 3}},
+    {.Key = KEY_K,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15679226, .RightImage.SampleOffset = 15692985, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
+    {.Key = KEY_L,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 16190230, .RightImage.SampleOffset = 16224544, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
     {.Key = KEY_Z,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Fishing Boat with Nets",                    .LeftImage.SampleOffset = 16705655, .RightImage.SampleOffset = 16725175, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Greece"},
     {.Key = KEY_X,           .LeftImage.Name = "Anatomy 7",                             .RightImage.Name = "Cooking Fish",                              .LeftImage.SampleOffset = 17189421, .RightImage.SampleOffset = 17242071, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Ribcage", .RightImage.Source = "Cooking of Spain and Portugal, Time-Life Books"},
     {.Key = KEY_C,           .LeftImage.Name = "Anatomy 8",                             .RightImage.Name = "Chinese Dinner Party",                      .LeftImage.SampleOffset = 17738425, .RightImage.SampleOffset = 17748573, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Muscles", .RightImage.Source = "Time-Life Books", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.055f, .DebounceSamples = 4}},
@@ -1108,9 +1108,6 @@ i32 main(void)
             }
         }
 
-        ImageMetaData LeftData  = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
-        ImageMetaData RightData = GetImageMetaDataFromSampleOffset(Player_RightChannel.Cursor, false);
-
         f32 MusicCursor = (f32)GetMusicTimePlayed(GoldenWav) * (f32)Wav.sampleRate;
 
         {
@@ -1120,7 +1117,10 @@ i32 main(void)
 
         while (Player_LeftChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
-            if (DecodeImage_StepV2(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold, GetColorChannelFromSampleOffset(Player_LeftChannel.Cursor, true), LeftData.OverrideParams))
+            // this loop can cross an image boundary, so every line decodes with its own image's tuning
+            ImageMetaData LineData = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
+
+            if (DecodeImage_StepV2(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold, LineData.ColorChannel, LineData.OverrideParams))
             {
                 Player_LeftChannel.ScanLine++;
             }
@@ -1140,7 +1140,9 @@ i32 main(void)
 
         while (Player_RightChannel.Cursor + SamplesPerLine <= MusicCursor)
         {
-            if (DecodeImage_StepV2(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold, GetColorChannelFromSampleOffset(Player_RightChannel.Cursor, false), RightData.OverrideParams))
+            ImageMetaData LineData = GetImageMetaDataFromSampleOffset(Player_RightChannel.Cursor, false);
+
+            if (DecodeImage_StepV2(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold, LineData.ColorChannel, LineData.OverrideParams))
             {
                 Player_RightChannel.ScanLine++;
             }
@@ -1155,9 +1157,29 @@ i32 main(void)
         UpdateTexture(Player_RightChannel.ScanTexture, Player_RightChannel.ScanImage->data);
         UpdateTexture(Player_LeftChannel.ScanTexture, Player_LeftChannel.ScanImage->data);
 
+        // the decode loops moved the cursors, so this is what the cursors are actually sitting on now
+        ImageMetaData LeftData  = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
+        ImageMetaData RightData = GetImageMetaDataFromSampleOffset(Player_RightChannel.Cursor, false);
+
         BeginDrawing();
 
         ClearBackground(BLACK);
+
+        // how far along the record we are, spanning the top edge of the window
+        {
+            const i32 BarHeight = 4;
+
+            f32 TrackLength = GetMusicTimeLength(GoldenWav);
+            f32 Progress    = TrackLength > 0.0f ? GetMusicTimePlayed(GoldenWav) / TrackLength : 0.0f;
+
+            if (Progress > 1.0f)
+            {
+                Progress = 1.0f;
+            }
+
+            DrawRectangle(0, 0, GetScreenWidth(), BarHeight, Fade(WHITE, 0.15f));
+            DrawRectangle(0, 0, (i32)(GetScreenWidth() * Progress), BarHeight, WHITE);
+        }
 
         DrawTextureEx(ScanTexture_Left, (Vector2){BaseLocationX, BaseLocationY}, 0, ImageScale, WHITE);
         DrawTextureEx(ScanTexture_Right, (Vector2){BaseLocationX+LeftOffset, BaseLocationY}, 0, ImageScale, WHITE);
