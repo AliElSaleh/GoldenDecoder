@@ -19,26 +19,63 @@ typedef signed long long     i64;
 typedef float                f32;
 typedef double               f64;
 
-const i32 ScreenWidth = 1920;
-const i32 ScreenHeight = 1080;
+const i32 DesignWidth  = 1920;
+const i32 DesignHeight = 1080;
 
-const i32 LeftOffset = 950;
+const i32 MinWindowWidth  = 854;
+const i32 MinWindowHeight = 480;
 
-const float ImageScale = 1.8f;
+const i32 DesignLeftOffset = 950;
 
-const i32 TitleFontSize = 65;
-const i32 BodyFontSize  = 20;
-const i32 SmallFontSize = 18;
+const f32 DesignImageScale = 1.8f;
+
+const i32 DesignTitleFontSize = 65;
+const i32 DesignBodyFontSize  = 20;
+const i32 DesignSmallFontSize = 18;
 // 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
-const i32 MenuFontSize      = 20;
-const i32 MenuTitleFontSize = 30;
+const i32 DesignMenuFontSize      = 20;
+const i32 DesignMenuTitleFontSize = 30;
+
+// live values for the current window size. zero scale forces the first UpdateLayoutScale to build them
+f32 UIScale = 0.0f;
+
+i32 LeftOffset;
+
+f32 ImageScale;
+
+i32 TitleFontSize;
+i32 BodyFontSize;
+i32 SmallFontSize;
+i32 MenuFontSize;
+i32 MenuTitleFontSize;
 
 const f32 FontSpacing = 0.0f;
+
+i32 Scaled(i32 DesignPixels)
+{
+    i32 Result = (i32)(DesignPixels * UIScale + 0.5f);
+
+    // a hairline still has to be visible when the window is smaller than the design size
+    if (DesignPixels > 0 && Result < 1)
+    {
+        Result = 1;
+    }
+
+    return Result;
+}
 
 const f32 RevealCharsPerSecond = 15.0f;
 const f32 RevealInstantSeconds = 1000.0f;
 
 const f32 MenuExitHoldSeconds = 1.0f;
+
+typedef struct
+{
+    Font Title;
+    Font Body;
+    Font Small;
+    Font Menu;
+} UIFonts;
 
 typedef u8 EImageColorChannel;
 enum
@@ -838,11 +875,11 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
     u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
     const i32 MenuColumns  = 3;
-    const i32 ColumnGap    = 30;
-    const i32 PanelPadding = 30;
+    const i32 ColumnGap    = Scaled(30);
+    const i32 PanelPadding = Scaled(30);
     const i32 KeyLabelChars = 5;   // "S-1" plus the two spaces separating it from the names
 
-    i32 RowHeight     = MenuFontSize + 6;
+    i32 RowHeight     = MenuFontSize + Scaled(6);
     i32 RowsPerColumn = (NumMappings + MenuColumns - 1) / MenuColumns;
 
     // monospaced, so one glyph gives the advance for every row
@@ -856,8 +893,8 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
     }
 
     i32 ColumnWidth = (i32)(CharWidth * LongestChars);
-    i32 TitleHeight = MenuTitleFontSize + 20;
-    i32 FooterHeight = MenuFontSize + 24;
+    i32 TitleHeight = MenuTitleFontSize + Scaled(20);
+    i32 FooterHeight = MenuFontSize + Scaled(24);
 
     i32 PanelWidth  = PanelPadding*2 + ColumnWidth*MenuColumns + ColumnGap*(MenuColumns-1);
     i32 PanelHeight = PanelPadding*2 + TitleHeight + RowsPerColumn*RowHeight + FooterHeight;
@@ -866,7 +903,7 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
     i32 PanelY = GetScreenHeight()/2 - PanelHeight/2;
 
     DrawRectangle(PanelX, PanelY, PanelWidth, PanelHeight, Fade(BLACK, 0.93f));
-    DrawRectangleLinesEx((Rectangle){PanelX, PanelY, PanelWidth, PanelHeight}, 2, Fade(WHITE, 0.35f));
+    DrawRectangleLinesEx((Rectangle){PanelX, PanelY, PanelWidth, PanelHeight}, (f32)Scaled(2), Fade(WHITE, 0.35f));
 
     const char* MenuTitle = "IMAGE SHORTCUTS";
     DrawTextEx(TitleFont, MenuTitle,
@@ -897,12 +934,13 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
     f32 HoldProgress = EscapeHeld / MenuExitHoldSeconds;
     if (HoldProgress > 1.0f) HoldProgress = 1.0f;
 
-    i32 BarWidth = PanelWidth - PanelPadding*2;
-    i32 BarX     = PanelX + PanelPadding;
-    i32 BarY     = FooterY + MenuFontSize + 8;
+    i32 BarWidth  = PanelWidth - PanelPadding*2;
+    i32 BarHeight = Scaled(3);
+    i32 BarX      = PanelX + PanelPadding;
+    i32 BarY      = FooterY + MenuFontSize + Scaled(8);
 
-    DrawRectangle(BarX, BarY, BarWidth, 3, Fade(WHITE, 0.15f));
-    DrawRectangle(BarX, BarY, (i32)(BarWidth * HoldProgress), 3, WHITE);
+    DrawRectangle(BarX, BarY, BarWidth, BarHeight, Fade(WHITE, 0.15f));
+    DrawRectangle(BarX, BarY, (i32)(BarWidth * HoldProgress), BarHeight, WHITE);
 }
 
 void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
@@ -917,8 +955,8 @@ void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
     u32 Channel = bLeftChannel ? 0 : 1;
 
     u32 Draw_StartPointX = BaseLocationX;
-    u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - 140);
-    u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + 65);
+    u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - Scaled(140));
+    u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + Scaled(65));
 
     u32 Window      = SamplesPerLine * NumSamplesToDraw;
     u32 CursorStart = MusicCursor - Window;
@@ -936,20 +974,81 @@ void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
 
     for (u32 i = CursorStart; i < CursorEnd; i++)
     {
-        f32 Value = Samples[i * Wav.channels + Channel] * 350.0f;
+        f32 Value = Samples[i * Wav.channels + Channel] * 350.0f * UIScale;
 
         f32 Alpha = ((f32)(CursorEnd - i) / Window);
 
         u32 XOffset = Draw_StartPointX + (i32)((Draw_EndPointX - Draw_StartPointX) * (1.0f - Alpha));
 
-        DrawPixel(XOffset, Draw_MidPointY + Value, WHITE);
+        // one sample per design pixel, so the mark widens with the scale or the trace goes dotted
+        DrawRectangle(XOffset, Draw_MidPointY + Value, Scaled(1), Scaled(1), WHITE);
     }
+}
+
+// returns true when the baked font sizes moved, which is the caller's cue to rebake them
+bool UpdateLayoutScale(void)
+{
+    f32 WidthScale  = (f32)GetScreenWidth()  / (f32)DesignWidth;
+    f32 HeightScale = (f32)GetScreenHeight() / (f32)DesignHeight;
+
+    // the narrower axis wins, so nothing spills off a window that is not 16:9
+    f32 NewScale = WidthScale < HeightScale ? WidthScale : HeightScale;
+
+    if (NewScale == UIScale)
+    {
+        return false;
+    }
+
+    UIScale = NewScale;
+
+    LeftOffset = Scaled(DesignLeftOffset);
+    ImageScale = DesignImageScale * UIScale;
+
+    i32 PreviousTitleFontSize     = TitleFontSize;
+    i32 PreviousBodyFontSize      = BodyFontSize;
+    i32 PreviousSmallFontSize     = SmallFontSize;
+    i32 PreviousMenuFontSize      = MenuFontSize;
+    i32 PreviousMenuTitleFontSize = MenuTitleFontSize;
+
+    TitleFontSize     = Scaled(DesignTitleFontSize);
+    BodyFontSize      = Scaled(DesignBodyFontSize);
+    SmallFontSize     = Scaled(DesignSmallFontSize);
+    MenuFontSize      = Scaled(DesignMenuFontSize);
+    MenuTitleFontSize = Scaled(DesignMenuTitleFontSize);
+
+    // dragging a window edge moves the scale every frame, but rasterising is only worth it
+    // when a size actually lands on a different integer
+    return TitleFontSize     != PreviousTitleFontSize
+        || BodyFontSize      != PreviousBodyFontSize
+        || SmallFontSize     != PreviousSmallFontSize
+        || MenuFontSize      != PreviousMenuFontSize
+        || MenuTitleFontSize != PreviousMenuTitleFontSize;
+}
+
+// glyphs bake at a fixed pixel size, so the whole set gets rebuilt whenever the scale moves
+void LoadUIFonts(UIFonts* Fonts)
+{
+    Fonts->Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf",    TitleFontSize, NULL, 0);
+    Fonts->Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", BodyFontSize,  NULL, 0);
+    Fonts->Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf", SmallFontSize, NULL, 0);
+    Fonts->Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", MenuFontSize,  NULL, 0);
+
+    SetTextureFilter(Fonts->Title.texture, TEXTURE_FILTER_BILINEAR);
+}
+
+void UnloadUIFonts(UIFonts* Fonts)
+{
+    UnloadFont(Fonts->Title);
+    UnloadFont(Fonts->Body);
+    UnloadFont(Fonts->Small);
+    UnloadFont(Fonts->Menu);
 }
 
 i32 main(void)
 {
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
-    InitWindow(ScreenWidth, ScreenHeight, "Golden Decoder");
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+    InitWindow(DesignWidth, DesignHeight, "Golden Decoder");
+    SetWindowMinSize(MinWindowWidth, MinWindowHeight);
     SetTargetFPS(0);
 
     // escape opens the menu instead of closing the window out from under us
@@ -973,15 +1072,10 @@ i32 main(void)
     SetTextureFilter(ScanTexture_Right, TEXTURE_FILTER_BILINEAR);
     SetTextureFilter(ScanTexture_Left, TEXTURE_FILTER_BILINEAR);
 
-    Font Font_Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf", TitleFontSize, NULL, 0);
-    Font Font_Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  BodyFontSize,  NULL, 0);
-    Font Font_Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  SmallFontSize, NULL, 0);
-    Font Font_Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf",  MenuFontSize,  NULL, 0);
+    UpdateLayoutScale();
 
-    SetTextureFilter(Font_Title.texture, TEXTURE_FILTER_BILINEAR);
-
-    const i32 LeftPadding  = 10;
-    const i32 ColumnWidth  = LeftOffset - LeftPadding*2;
+    UIFonts Fonts = {0};
+    LoadUIFonts(&Fonts);
 
     u32 SamplesPerLine = Wav.sampleRate * SAMPLES_FACTOR;
     u32 Slack = 0.05 * SamplesPerLine;
@@ -1006,13 +1100,22 @@ i32 main(void)
     {
         UpdateMusicStream(GoldenWav);
 
-        i32 BaseLocationX = GetScreenWidth()/2  - LeftOffset;
-        i32 BaseLocationY = GetScreenHeight()/2 - 375;
+        if (UpdateLayoutScale())
+        {
+            UnloadUIFonts(&Fonts);
+            LoadUIFonts(&Fonts);
+        }
 
-        const i32 DescriptionY = BaseLocationY  - BodyFontSize  - 9;
-        const i32 SourceY      = DescriptionY   - BodyFontSize  - 2;
-        const i32 NameY        = SourceY        - TitleFontSize - 4;
-        const i32 CursorY      = NameY          - SmallFontSize - 4;
+        const i32 LeftPadding = Scaled(10);
+        const i32 ColumnWidth = LeftOffset - LeftPadding*2;
+
+        i32 BaseLocationX = GetScreenWidth()/2  - LeftOffset;
+        i32 BaseLocationY = GetScreenHeight()/2 - Scaled(375);
+
+        const i32 DescriptionY = BaseLocationY  - BodyFontSize  - Scaled(9);
+        const i32 SourceY      = DescriptionY   - BodyFontSize  - Scaled(2);
+        const i32 NameY        = SourceY        - TitleFontSize - Scaled(4);
+        const i32 CursorY      = NameY          - SmallFontSize - Scaled(4);
 
         if (!bMenuOpen)
         {
@@ -1167,7 +1270,7 @@ i32 main(void)
 
         // how far along the record we are, spanning the top edge of the window
         {
-            const i32 BarHeight = 4;
+            const i32 BarHeight = Scaled(4);
 
             f32 TrackLength = GetMusicTimeLength(GoldenWav);
             f32 Progress    = TrackLength > 0.0f ? GetMusicTimePlayed(GoldenWav) / TrackLength : 0.0f;
@@ -1189,12 +1292,12 @@ i32 main(void)
             f32 PlayedTime = GetMusicTimePlayed(GoldenWav);
             const char* TimeText = TextFormat("%02i:%02i:%03i", (i32)PlayedTime / 60, (i32)PlayedTime % 60, (i32)(PlayedTime * 1000) % 1000);
 
-            i32 GlyphSize = 14;
-            i32 GlyphGap  = 12;
+            i32 GlyphSize = Scaled(14);
+            i32 GlyphGap  = Scaled(12);
 
-            i32 GroupWidth = GlyphSize + GlyphGap + (i32)MeasureTextEx(Font_Body, TimeText, BodyFontSize, FontSpacing).x;
+            i32 GroupWidth = GlyphSize + GlyphGap + (i32)MeasureTextEx(Fonts.Body, TimeText, BodyFontSize, FontSpacing).x;
             i32 GroupX     = GetScreenWidth() - GroupWidth;
-            i32 GroupY     = BaseLocationY - 160;
+            i32 GroupY     = BaseLocationY - Scaled(160);
 
             // the glyph shows the state at a glance, and blinks while paused
             f32 GlyphAlpha = bPaused ? 0.25f + 0.35f * (0.5f + 0.5f * sinf((f32)GetTime() * 2.5f)) : 1.0f;
@@ -1208,7 +1311,7 @@ i32 main(void)
                 DrawRectangle(GroupX + GlyphSize - BarWidth, GlyphY, BarWidth, GlyphSize, GlyphColor);
             }
 
-            DrawTextEx(Font_Body, TimeText, (Vector2){GroupX + GlyphSize + GlyphGap, GroupY}, BodyFontSize, FontSpacing, GlyphColor);
+            DrawTextEx(Fonts.Body, TimeText, (Vector2){GroupX + GlyphSize + GlyphGap, GroupY}, BodyFontSize, FontSpacing, GlyphColor);
         }
 
         i32 LeftColumnX  = BaseLocationX + LeftPadding;
@@ -1223,16 +1326,16 @@ i32 main(void)
         UpdateTextReveal(&Reveal_RightChannel, GetChannelIndexFromSampleOffset(Player_RightChannel.Cursor, false),
                          RightData.ColorChannel, RevealDelta);
 
-        DrawChannelMetaData(Font_Title, Font_Body, LeftData,  Reveal_LeftChannel,
+        DrawChannelMetaData(Fonts.Title, Fonts.Body, LeftData,  Reveal_LeftChannel,
                             LeftColumnX,  ColumnWidth, NameY, SourceY, DescriptionY);
 
-        DrawChannelMetaData(Font_Title, Font_Body, RightData, Reveal_RightChannel,
+        DrawChannelMetaData(Fonts.Title, Fonts.Body, RightData, Reveal_RightChannel,
                             RightColumnX, ColumnWidth, NameY, SourceY, DescriptionY);
 
         // current decode cursor for each channel
         {
-            DrawTextEx(Font_Small, TextFormat("L %u", Player_LeftChannel.Cursor),  (Vector2){LeftColumnX,  CursorY}, SmallFontSize, FontSpacing, GRAY);
-            DrawTextEx(Font_Small, TextFormat("R %u", Player_RightChannel.Cursor), (Vector2){RightColumnX, CursorY}, SmallFontSize, FontSpacing, GRAY);
+            DrawTextEx(Fonts.Small, TextFormat("L %u", Player_LeftChannel.Cursor),  (Vector2){LeftColumnX,  CursorY}, SmallFontSize, FontSpacing, GRAY);
+            DrawTextEx(Fonts.Small, TextFormat("R %u", Player_RightChannel.Cursor), (Vector2){RightColumnX, CursorY}, SmallFontSize, FontSpacing, GRAY);
         }
 
         static u32 NumSamplesToDraw = 6;
@@ -1255,16 +1358,13 @@ i32 main(void)
 
         if (bMenuOpen)
         {
-            DrawShortcutMenu(Font_Title, Font_Menu, MenuEscapeHeld);
+            DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld);
         }
 
         EndDrawing();
     }
 
-    UnloadFont(Font_Title);
-    UnloadFont(Font_Body);
-    UnloadFont(Font_Small);
-    UnloadFont(Font_Menu);
+    UnloadUIFonts(&Fonts);
 
     UnloadTexture(ScanTexture_Left);
     UnloadTexture(ScanTexture_Right);
