@@ -36,6 +36,8 @@ const i32 DesignSmallFontSize = 18;
 const i32 DesignMenuFontSize      = 20;
 const i32 DesignMenuTitleFontSize = 30;
 
+const u32 LineHeight = 430;
+
 // live values for the current window size. zero scale forces the first UpdateLayoutScale to build them
 f32 UIScale = 0.0f;
 
@@ -333,8 +335,6 @@ EImageColorChannel GetColorChannelFromSampleOffset(u32 SampleOffset, bool bLeftC
     return Result;
 }
 
-u32 LineHeight = 430;
-
 f32 SyncPeak(f32* Samples, u64 TestIndex, u64 SampleWidth, u32 Channels, bool bLeft)
 {
     f32 Result = 0;
@@ -579,7 +579,14 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
             f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
 
             i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
-            if (V < 0) V = 0; if (V > 255) V = 255;
+            if (V < 0)
+            {
+                V = 0;
+            }
+            else if (V > 255)
+            {
+                V = 255;
+            }
 
             V = 255 - V;
 
@@ -590,7 +597,7 @@ bool DecodeImage_StepV2(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImag
                 default:
                 case Mono:
                 {
-                    PixelColor = (Color){ V, V, V, 255};
+                    PixelColor = (Color){ V, V, V, 255 };
                 }
                 break;
 
@@ -1106,7 +1113,7 @@ i32 main(void)
             LoadUIFonts(&Fonts);
         }
 
-        const i32 LeftPadding = Scaled(10);
+        const i32 LeftPadding = Scaled(0);
         const i32 ColumnWidth = LeftOffset - LeftPadding*2;
 
         i32 BaseLocationX = GetScreenWidth()/2  - LeftOffset;
@@ -1163,17 +1170,20 @@ i32 main(void)
 
         u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
-        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
+        if (!bIsControl)
         {
-            i32 Step = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
-
-            i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
-
-            if (Target >= 0 && Target < (i32)NumMappings)
+            if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
             {
-                SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, SamplesPerLine, Wav, GoldenWav);
-
-                bMenuOpen = false;
+                i32 Step = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
+    
+                i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
+    
+                if (Target >= 0 && Target < (i32)NumMappings)
+                {
+                    SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, SamplesPerLine, Wav, GoldenWav);
+    
+                    bMenuOpen = false;
+                }
             }
         }
 
@@ -1339,12 +1349,12 @@ i32 main(void)
         }
 
         static u32 NumSamplesToDraw = 6;
-        if (IsKeyPressed(KEY_UP))
+        if (!bIsControl && IsKeyPressed(KEY_UP))
         {
             NumSamplesToDraw++;
             // printf("%u\n", NumSamplesToDraw);
         }
-        if (IsKeyPressed(KEY_DOWN))
+        if (!bIsControl && IsKeyPressed(KEY_DOWN))
         {
             NumSamplesToDraw--;
             // printf("%u\n", NumSamplesToDraw);
