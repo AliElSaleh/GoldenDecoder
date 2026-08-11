@@ -36,7 +36,9 @@ if bundle if macos
 {
     Bundle
 
-    BundleResources $(BuildDirectory)/$(Assembly).app/Contents/Resources/resources
+    BundleApp       $(BuildDirectory)/$(Assembly).app
+    BundleContents  $(BundleApp)/Contents
+    BundleResources $(BundleContents)/Resources/resources
 
     PostBuild
     {
@@ -48,6 +50,9 @@ if bundle if macos
             resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BundleResources)
             resources/IBM_Plex_Mono/OFL.txt                 $(BundleResources)
         }
+
+        Cmd codesign --force --sign - $(BundleApp)
+        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(arch).zip
     }
 }
 
