@@ -25,6 +25,9 @@ const i32 DesignHeight = 1080;
 const i32 MinWindowWidth  = 854;
 const i32 MinWindowHeight = 480;
 
+const f32 WindowScreenMargin = 0.9f;
+const i32 WindowTopMargin = 60;
+
 const i32 DesignLeftOffset = 950;
 
 const f32 DesignImageScale = 1.8f;
@@ -35,6 +38,11 @@ const i32 DesignSmallFontSize = 18;
 // 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
 const i32 DesignMenuFontSize      = 20;
 const i32 DesignMenuTitleFontSize = 30;
+
+const f32 MenuMaxWidthFraction  = 0.85f;
+const f32 MenuMaxHeightFraction = 0.80f;
+
+const i32 MinMenuFontSize = 8;
 
 const u32 LineHeight = 430;
 
@@ -876,21 +884,50 @@ const char* GetShortcutImageNames(ImageMapping Mapping)
                       Mapping.RightImage.Name ? Mapping.RightImage.Name : "");
 }
 
-// lists every image shortcut, and doubles as the way out of the app
-void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentIndex)
+typedef struct
+{
+    i32 RowFontSize;
+    i32 TitleTextSize;
+
+    f32 CharWidth;
+
+    i32 Padding;
+    i32 ColumnGap;
+    i32 ColumnWidth;
+    i32 RowHeight;
+    i32 RowsPerColumn;
+    i32 TitleHeight;
+    i32 FooterHeight;
+
+    i32 PanelWidth;
+    i32 PanelHeight;
+} ShortcutMenuLayout;
+
+const i32 MenuColumns    = 3;
+const i32 KeyLabelChars  = 5;   // "S-1" plus the two spaces separating it from the names
+
+// every part of the panel hangs off the row font size, so the whole thing shrinks together
+ShortcutMenuLayout BuildShortcutMenuLayout(Font RowFont, i32 RowFontSize)
 {
     u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
-    const i32 MenuColumns  = 3;
-    const i32 ColumnGap    = Scaled(30);
-    const i32 PanelPadding = Scaled(30);
-    const i32 KeyLabelChars = 5;   // "S-1" plus the two spaces separating it from the names
+    ShortcutMenuLayout Layout = {0};
 
-    i32 RowHeight     = MenuFontSize + Scaled(6);
-    i32 RowsPerColumn = (NumMappings + MenuColumns - 1) / MenuColumns;
+    Layout.RowFontSize = RowFontSize;
+
+    // how far the font has been pulled below the size the layout was drawn at
+    f32 Fit = (f32)RowFontSize / (f32)MenuFontSize;
+
+    Layout.TitleTextSize = (i32)(MenuTitleFontSize * Fit);
+
+    Layout.Padding   = (i32)(Scaled(30) * Fit);
+    Layout.ColumnGap = (i32)(Scaled(30) * Fit);
+
+    Layout.RowHeight     = RowFontSize + (i32)(Scaled(6) * Fit);
+    Layout.RowsPerColumn = (NumMappings + MenuColumns - 1) / MenuColumns;
 
     // monospaced, so one glyph gives the advance for every row
-    f32 CharWidth = MeasureTextEx(RowFont, "M", MenuFontSize, FontSpacing).x;
+    Layout.CharWidth = MeasureTextEx(RowFont, "M", (f32)RowFontSize, FontSpacing).x;
 
     i32 LongestChars = 0;
     for (u32 i = 0; i < NumMappings; i++)
@@ -899,32 +936,53 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
         if (Chars > LongestChars) LongestChars = Chars;
     }
 
-    i32 ColumnWidth = (i32)(CharWidth * LongestChars);
-    i32 TitleHeight = MenuTitleFontSize + Scaled(20);
-    i32 FooterHeight = MenuFontSize + Scaled(24);
+    Layout.ColumnWidth  = (i32)(Layout.CharWidth * LongestChars);
+    Layout.TitleHeight  = Layout.TitleTextSize + (i32)(Scaled(20) * Fit);
+    Layout.FooterHeight = RowFontSize + (i32)(Scaled(24) * Fit);
 
-    i32 PanelWidth  = PanelPadding*2 + ColumnWidth*MenuColumns + ColumnGap*(MenuColumns-1);
-    i32 PanelHeight = PanelPadding*2 + TitleHeight + RowsPerColumn*RowHeight + FooterHeight;
+    Layout.PanelWidth  = Layout.Padding*2 + Layout.ColumnWidth*MenuColumns + Layout.ColumnGap*(MenuColumns-1);
+    Layout.PanelHeight = Layout.Padding*2 + Layout.TitleHeight + Layout.RowsPerColumn*Layout.RowHeight + Layout.FooterHeight;
 
-    i32 PanelX = GetScreenWidth()/2  - PanelWidth/2;
-    i32 PanelY = GetScreenHeight()/2 - PanelHeight/2;
+    return Layout;
+}
 
-    DrawRectangle(PanelX, PanelY, PanelWidth, PanelHeight, Fade(BLACK, 0.93f));
-    DrawRectangleLinesEx((Rectangle){PanelX, PanelY, PanelWidth, PanelHeight}, (f32)Scaled(2), Fade(WHITE, 0.35f));
+// lists every image shortcut, and doubles as the way out of the app
+void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentIndex)
+{
+    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
+
+    i32 MaxPanelWidth  = (i32)(GetScreenWidth()  * MenuMaxWidthFraction);
+    i32 MaxPanelHeight = (i32)(GetScreenHeight() * MenuMaxHeightFraction);
+
+    // 86 rows of two image names each is a lot of table, so the design font size is only the
+    // ceiling. it drops a point at a time until the panel sits inside its slice of the window
+    ShortcutMenuLayout Layout = BuildShortcutMenuLayout(RowFont, MenuFontSize);
+
+    while (Layout.RowFontSize > MinMenuFontSize &&
+           (Layout.PanelWidth > MaxPanelWidth || Layout.PanelHeight > MaxPanelHeight))
+    {
+        Layout = BuildShortcutMenuLayout(RowFont, Layout.RowFontSize - 1);
+    }
+
+    i32 PanelX = GetScreenWidth()/2  - Layout.PanelWidth/2;
+    i32 PanelY = GetScreenHeight()/2 - Layout.PanelHeight/2;
+
+    DrawRectangle(PanelX, PanelY, Layout.PanelWidth, Layout.PanelHeight, Fade(BLACK, 0.93f));
+    DrawRectangleLinesEx((Rectangle){PanelX, PanelY, Layout.PanelWidth, Layout.PanelHeight}, (f32)Scaled(2), Fade(WHITE, 0.35f));
 
     const char* MenuTitle = "IMAGE SHORTCUTS";
     DrawTextEx(TitleFont, MenuTitle,
-               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(TitleFont, MenuTitle, MenuTitleFontSize, FontSpacing).x*0.5f, PanelY + PanelPadding},
-               MenuTitleFontSize, FontSpacing, WHITE);
+               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(TitleFont, MenuTitle, (f32)Layout.TitleTextSize, FontSpacing).x*0.5f, PanelY + Layout.Padding},
+               (f32)Layout.TitleTextSize, FontSpacing, WHITE);
 
-    i32 GridY = PanelY + PanelPadding + TitleHeight;
+    i32 GridY = PanelY + Layout.Padding + Layout.TitleHeight;
     for (u32 i = 0; i < NumMappings; i++)
     {
-        i32 Column = i / RowsPerColumn;
-        i32 Row    = i % RowsPerColumn;
+        i32 Column = i / Layout.RowsPerColumn;
+        i32 Row    = i % Layout.RowsPerColumn;
 
-        i32 RowX = PanelX + PanelPadding + Column*(ColumnWidth + ColumnGap);
-        i32 RowY = GridY + Row*RowHeight;
+        i32 RowX = PanelX + Layout.Padding + Column*(Layout.ColumnWidth + Layout.ColumnGap);
+        i32 RowY = GridY + Row*Layout.RowHeight;
 
         // the row the music cursor is sitting on, so the menu tells you where you are
         bool bIsCurrent = ((i32)i == CurrentIndex);
@@ -932,28 +990,32 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
         {
             i32 HighlightPad = Scaled(6);
             DrawRectangle(RowX - HighlightPad, RowY - Scaled(3),
-                          ColumnWidth + HighlightPad*2, RowHeight, Fade(WHITE, 0.2f));
+                          Layout.ColumnWidth + HighlightPad*2, Layout.RowHeight, Fade(WHITE, 0.2f));
         }
 
-        DrawTextEx(RowFont, GetShortcutKeyLabel(ImageMappings[i]),   (Vector2){RowX, RowY}, MenuFontSize, FontSpacing, WHITE);
+        DrawTextEx(RowFont, GetShortcutKeyLabel(ImageMappings[i]),   (Vector2){RowX, RowY}, (f32)Layout.RowFontSize, FontSpacing, WHITE);
         DrawTextEx(RowFont, GetShortcutImageNames(ImageMappings[i]),
-                   (Vector2){RowX + CharWidth*KeyLabelChars, RowY}, MenuFontSize, FontSpacing, bIsCurrent ? WHITE : GRAY);
+                   (Vector2){RowX + Layout.CharWidth*KeyLabelChars, RowY}, (f32)Layout.RowFontSize, FontSpacing, bIsCurrent ? WHITE : GRAY);
     }
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
-    i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
+    i32 FooterY = PanelY + Layout.PanelHeight - Layout.Padding - Layout.RowFontSize;
     const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    LEFT/RIGHT STEP IMAGES";
+
+    // the footer is one long line, so it gets its own shrink rather than widening the panel
+    i32 FooterFontSize = FitFontSize(RowFont, FooterText, Layout.PanelWidth - Layout.Padding*2, Layout.RowFontSize, MinMenuFontSize);
+
     DrawTextEx(RowFont, FooterText,
-               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
-               MenuFontSize, FontSpacing, GRAY);
+               (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, (f32)FooterFontSize, FontSpacing).x*0.5f, FooterY},
+               (f32)FooterFontSize, FontSpacing, GRAY);
 
     f32 HoldProgress = EscapeHeld / MenuExitHoldSeconds;
     if (HoldProgress > 1.0f) HoldProgress = 1.0f;
 
-    i32 BarWidth  = PanelWidth - PanelPadding*2;
+    i32 BarWidth  = Layout.PanelWidth - Layout.Padding*2;
     i32 BarHeight = Scaled(3);
-    i32 BarX      = PanelX + PanelPadding;
-    i32 BarY      = FooterY + MenuFontSize + Scaled(8);
+    i32 BarX      = PanelX + Layout.Padding;
+    i32 BarY      = FooterY + Layout.RowFontSize + (i32)(Scaled(8) * ((f32)Layout.RowFontSize / (f32)MenuFontSize));
 
     DrawRectangle(BarX, BarY, BarWidth, BarHeight, Fade(WHITE, 0.15f));
     DrawRectangle(BarX, BarY, (i32)(BarWidth * HoldProgress), BarHeight, WHITE);
@@ -1044,12 +1106,25 @@ bool UpdateLayoutScale(void)
 // glyphs bake at a fixed pixel size, so the whole set gets rebuilt whenever the scale moves
 void LoadUIFonts(UIFonts* Fonts)
 {
-    Fonts->Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf",    TitleFontSize, NULL, 0);
-    Fonts->Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", BodyFontSize,  NULL, 0);
-    Fonts->Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf", SmallFontSize, NULL, 0);
-    Fonts->Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", MenuFontSize,  NULL, 0);
+    // a retina framebuffer is denser than the coordinate space drawn into, so glyphs bake at the
+    // pixels they will really cover and get drawn back down at the size the layout asked for
+    f32 PixelDensity = GetWindowScaleDPI().x;
+    if (PixelDensity < 1.0f)
+    {
+        PixelDensity = 1.0f;
+    }
 
+    Fonts->Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf",    (i32)(TitleFontSize * PixelDensity), NULL, 0);
+    Fonts->Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(BodyFontSize  * PixelDensity), NULL, 0);
+    Fonts->Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(SmallFontSize * PixelDensity), NULL, 0);
+    Fonts->Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(MenuFontSize  * PixelDensity), NULL, 0);
+
+    // every glyph is now drawn below the size it was baked at, the menu doubly so when the table
+    // has to shrink to fit
     SetTextureFilter(Fonts->Title.texture, TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(Fonts->Body.texture,  TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(Fonts->Small.texture, TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(Fonts->Menu.texture,  TEXTURE_FILTER_BILINEAR);
 }
 
 void UnloadUIFonts(UIFonts* Fonts)
@@ -1060,11 +1135,72 @@ void UnloadUIFonts(UIFonts* Fonts)
     UnloadFont(Fonts->Menu);
 }
 
+void FitWindowToMonitor(void)
+{
+    i32 Monitor = GetCurrentMonitor();
+
+    i32 MonitorWidth  = GetMonitorWidth(Monitor);
+    i32 MonitorHeight = GetMonitorHeight(Monitor);
+
+    // a headless or otherwise unreported monitor leaves the requested size alone
+    if (MonitorWidth <= 0 || MonitorHeight <= 0)
+    {
+        return;
+    }
+
+    f32 WidthFit  = (MonitorWidth  * WindowScreenMargin) / (f32)DesignWidth;
+    f32 HeightFit = (MonitorHeight * WindowScreenMargin) / (f32)DesignHeight;
+
+    // the tighter axis wins so the aspect ratio holds and the layout scales uniformly
+    f32 Fit = WidthFit < HeightFit ? WidthFit : HeightFit;
+
+    // never blow the window up past the design size on a larger monitor
+    if (Fit > 1.0f)
+    {
+        Fit = 1.0f;
+    }
+
+    i32 Width  = (i32)(DesignWidth  * Fit);
+    i32 Height = (i32)(DesignHeight * Fit);
+
+    // the minimum size still wins on a very small panel, even if it overflows the margin
+    if (Width < MinWindowWidth)
+    {
+        Width = MinWindowWidth;
+    }
+
+    if (Height < MinWindowHeight)
+    {
+        Height = MinWindowHeight;
+    }
+
+    SetWindowSize(Width, Height);
+
+    Vector2 MonitorPosition = GetMonitorPosition(Monitor);
+
+    i32 PositionX = (i32)MonitorPosition.x + (MonitorWidth  - Width)  / 2;
+    i32 PositionY = (i32)MonitorPosition.y + (MonitorHeight - Height) / 2;
+
+    if (PositionX < (i32)MonitorPosition.x)
+    {
+        PositionX = (i32)MonitorPosition.x;
+    }
+
+    // centring puts the title bar off the top of a screen the window barely fits on
+    if (PositionY < (i32)MonitorPosition.y + WindowTopMargin)
+    {
+        PositionY = (i32)MonitorPosition.y + WindowTopMargin;
+    }
+
+    SetWindowPosition(PositionX, PositionY);
+}
+
 i32 main(void)
 {
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
     InitWindow(DesignWidth, DesignHeight, "Golden Decoder");
     SetWindowMinSize(MinWindowWidth, MinWindowHeight);
+    FitWindowToMonitor();
     SetTargetFPS(0);
 
     // escape opens the menu instead of closing the window out from under us
@@ -1074,10 +1210,28 @@ i32 main(void)
 
     Music GoldenWav = LoadMusicStream("resources/golden.wav");
     Wave Wav = LoadWave("resources/golden.wav");
+
+    bool bHaveWave  = IsWaveValid(Wav);
+    bool bHaveMusic = IsMusicValid(GoldenWav);
+
+    f32* Samples = bHaveWave ? LoadWaveSamples(Wav) : NULL;
+
+    if (!bHaveMusic || !bHaveWave || Samples == NULL)
+    {
+        TraceLog(LOG_ERROR, "resources/golden.wav is missing or is not a readable wav file.");
+        TraceLog(LOG_ERROR, "if this is a fresh clone, the audio is stored in git lfs: install it and run \"git lfs pull\".");
+
+        UnloadWaveSamples(Samples);
+        UnloadWave(Wav);
+        UnloadMusicStream(GoldenWav);
+        CloseAudioDevice();
+        CloseWindow();
+
+        return 1;
+    }
+
     PlayMusicStream(GoldenWav);
-    
-    f32* Samples = LoadWaveSamples(Wav);
-    
+
     Image Scan_Left = GenImageColor(600, LineHeight, BLANK);
     Texture2D ScanTexture_Left = LoadTextureFromImage(Scan_Left);
     

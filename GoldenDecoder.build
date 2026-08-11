@@ -29,11 +29,12 @@ if mode == debug
 SourceFiles         Source/Program
 SourceFiles:windows Resources/GoldenDecoder_WindowIcon
 
-Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
+Compiler.Flags          $SharedCompilerFlags -std=gnu99 -Werror
 Linker.Flags            $SharedLinkerFlags
 Compiler.Includes       . Libraries
 Library.Paths           Libraries
 Libraries               Raylib-&Platform-&arch
+Apple.Frameworks        Foundation AppKit IOKit
 
 if windows
 {
