@@ -17,7 +17,8 @@ if mode == release
     
     if windows
     {
-        Linker.Subsystem Windows
+        Linker.Subsystem       Windows
+        Linker.EntryPoint:msvc mainCRTStartup
     }
 }
 
