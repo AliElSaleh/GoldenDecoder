@@ -877,7 +877,7 @@ const char* GetShortcutImageNames(ImageMapping Mapping)
 }
 
 // lists every image shortcut, and doubles as the way out of the app
-void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
+void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentIndex)
 {
     u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
@@ -926,9 +926,18 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld)
         i32 RowX = PanelX + PanelPadding + Column*(ColumnWidth + ColumnGap);
         i32 RowY = GridY + Row*RowHeight;
 
+        // the row the music cursor is sitting on, so the menu tells you where you are
+        bool bIsCurrent = ((i32)i == CurrentIndex);
+        if (bIsCurrent)
+        {
+            i32 HighlightPad = Scaled(6);
+            DrawRectangle(RowX - HighlightPad, RowY - Scaled(3),
+                          ColumnWidth + HighlightPad*2, RowHeight, Fade(WHITE, 0.2f));
+        }
+
         DrawTextEx(RowFont, GetShortcutKeyLabel(ImageMappings[i]),   (Vector2){RowX, RowY}, MenuFontSize, FontSpacing, WHITE);
         DrawTextEx(RowFont, GetShortcutImageNames(ImageMappings[i]),
-                   (Vector2){RowX + CharWidth*KeyLabelChars, RowY}, MenuFontSize, FontSpacing, GRAY);
+                   (Vector2){RowX + CharWidth*KeyLabelChars, RowY}, MenuFontSize, FontSpacing, bIsCurrent ? WHITE : GRAY);
     }
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
@@ -1368,7 +1377,8 @@ i32 main(void)
 
         if (bMenuOpen)
         {
-            DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld);
+            DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld,
+                             GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true));
         }
 
         EndDrawing();
