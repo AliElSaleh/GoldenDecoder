@@ -1,4 +1,6 @@
-Compiler x86_64-w64-mingw32-gcc
+Compiler:windows x86_64-w64-mingw32-gcc
+Compiler:unix    gcc
+
 Assembly GoldenDecoder
 .Run
 
@@ -9,14 +11,19 @@ IntermediateDirectory Intermediate/%Mode
 
 if mode == release
 {
-    SharedCompilerFlags -O3 -funroll-loops -ffast-math
-    Linker.Subsystem Windows
+    SharedCompilerFlags -O3
+    
+    if windows
+    {
+        Linker.Subsystem Windows
+    }
 }
+
 if mode == debug 
 {
     SharedCompilerFlags -O0 -g3
-    SharedLinkerFlags -g3
-    Compiler.Defines _DEBUG
+    SharedLinkerFlags   -g3
+    Compiler.Defines    _DEBUG
 }
 
 SourceFiles         Source/Program
@@ -25,8 +32,13 @@ SourceFiles:windows Resources/GoldenDecoder_WindowIcon
 Compiler.Flags          $SharedCompilerFlags -std=gnu99 -fmax-errors=1 -Werror
 Linker.Flags            $SharedLinkerFlags
 Compiler.Includes       . Libraries
-Libraries               RaylibS gdi32 winmm
 Library.Paths           Libraries
+Libraries               Raylib-&Platform-&arch
+
+if windows
+{
+    Libraries           gdi32 winmm
+}
 
 PostBuild
 {
@@ -42,6 +54,6 @@ PostBuild
     }
 }
 
-Assert.Platform Windows
+Assert.Platform Windows:x64 Linux:x64 Linux:arm64 macOS
 
 option.mode(Debug Release)
