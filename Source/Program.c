@@ -1135,6 +1135,15 @@ void FitWindowToMonitor(void)
 
 i32 main(void)
 {
+    ChangeDirectory(GetApplicationDirectory());
+
+    #if defined(__APPLE__)
+    if (DirectoryExists("../Resources/resources"))
+    {
+        ChangeDirectory("../Resources");
+    }
+    #endif
+
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
     InitWindow(DesignWidth, DesignHeight, "Golden Decoder");
     SetWindowMinSize(MinWindowWidth, MinWindowHeight);

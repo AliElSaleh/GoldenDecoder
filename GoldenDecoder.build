@@ -1,7 +1,7 @@
 Compiler:windows msvc
 Compiler:unix    gcc
 
-Assembly GoldenDecoder
+Assembly(preserve_case) GoldenDecoder
 .Run
 
 IconFile Voyager_Golden_Record
@@ -32,9 +32,23 @@ if mode == debug
 
 SharedCompilerFlags:msvc /MD
 
-if bundle
+if bundle if macos
 {
     Bundle
+
+    BundleResources $(BuildDirectory)/$(Assembly).app/Contents/Resources/resources
+
+    PostBuild
+    {
+        Copy
+        {
+            resources/golden.wav $(BundleResources)
+
+            resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf $(BundleResources)
+            resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BundleResources)
+            resources/IBM_Plex_Mono/OFL.txt                 $(BundleResources)
+        }
+    }
 }
 
 SourceFiles         Source/Program
