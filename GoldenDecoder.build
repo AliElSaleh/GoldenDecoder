@@ -1,17 +1,19 @@
-Compiler:windows x86_64-w64-mingw32-gcc
+Compiler:windows msvc
 Compiler:unix    gcc
 
 Assembly GoldenDecoder
 .Run
 
-Icon Voyager_Golden_Record
+IconFile Voyager_Golden_Record
+Icon:!windows $(IconFile)
 
 BuildDirectory        Build/%Mode
 IntermediateDirectory Intermediate/%Mode
 
 if mode == release
 {
-    SharedCompilerFlags -O3
+    SharedCompilerFlags:msvc      /O2
+    SharedCompilerFlags:gcc|clang -O3
     
     if windows
     {
@@ -21,19 +23,22 @@ if mode == release
 
 if mode == debug 
 {
-    SharedCompilerFlags -O0 -g3
-    SharedLinkerFlags   -g3
+    SharedCompilerFlags:msvc    /Od
+    SharedLinkerFlags:gcc|clang -g3
+
     Compiler.Defines    _DEBUG
 }
+
+SharedCompilerFlags:msvc /MD
 
 SourceFiles         Source/Program
 SourceFiles:windows Resources/GoldenDecoder_WindowIcon
 
-Compiler.Flags          $SharedCompilerFlags -std=gnu99 -Werror
+Compiler.Flags          $SharedCompilerFlags
 Linker.Flags            $SharedLinkerFlags
 Compiler.Includes       . Libraries
 Library.Paths           Libraries
-Libraries               Raylib-&Platform-&arch
+Libraries               Raylib-&Platform-&arch &NativeLibs
 Apple.Frameworks        Foundation AppKit IOKit
 
 if windows
@@ -47,7 +52,7 @@ PostBuild
     {
         resources/golden.wav $(BuildDirectory)/resources
 
-        resources/$(Icon).* $(BuildDirectory)/resources
+        resources/$(IconFile).* $(BuildDirectory)/resources
 
         resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf $(BuildDirectory)/resources
         resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BuildDirectory)/resources
