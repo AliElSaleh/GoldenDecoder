@@ -32,6 +32,11 @@ if mode == debug
 
 SharedCompilerFlags:msvc /MD
 
+if bundle
+{
+    Bundle
+}
+
 SourceFiles         Source/Program
 SourceFiles:windows Resources/GoldenDecoder_WindowIcon
 
@@ -39,7 +44,8 @@ Compiler.Flags          $SharedCompilerFlags
 Linker.Flags            $SharedLinkerFlags
 Compiler.Includes       . Libraries
 Library.Paths           Libraries
-Libraries               Raylib-&Platform-&arch &NativeLibs
+Libraries               Raylib-&Platform-&arch
+Libraries:windows       &NativeLibs
 Apple.Frameworks        Foundation AppKit IOKit
 
 if windows
