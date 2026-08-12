@@ -1056,10 +1056,10 @@ void LoadUIFonts(UIFonts* Fonts)
         PixelDensity = 1.0f;
     }
 
-    Fonts->Title = LoadFontEx("resources/IBMPlexMono-Bold.ttf",    (i32)(TitleFontSize    * PixelDensity), NULL, 0);
-    Fonts->Body  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(BodyFontSize     * PixelDensity), NULL, 0);
-    Fonts->Small = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(SmallFontSize    * PixelDensity), NULL, 0);
-    Fonts->Menu  = LoadFontEx("resources/IBMPlexMono-Regular.ttf", (i32)(MenuFontSize      * PixelDensity), NULL, 0);
+    Fonts->Title = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf",    (i32)(TitleFontSize    * PixelDensity), NULL, 0);
+    Fonts->Body  = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(BodyFontSize     * PixelDensity), NULL, 0);
+    Fonts->Small = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(SmallFontSize    * PixelDensity), NULL, 0);
+    Fonts->Menu  = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(MenuFontSize      * PixelDensity), NULL, 0);
 
     // the big title is the one face drawn well below the size it bakes at, in the menu header
     SetTextureFilter(Fonts->Title.texture, TEXTURE_FILTER_BILINEAR);

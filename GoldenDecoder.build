@@ -32,32 +32,8 @@ if mode == debug
 
 SharedCompilerFlags:msvc /MD
 
-if bundle if macos
-{
-    Bundle
-
-    BundleApp       $(BuildDirectory)/$(Assembly).app
-    BundleContents  $(BundleApp)/Contents
-    BundleResources $(BundleContents)/Resources/resources
-
-    PostBuild
-    {
-        Copy
-        {
-            resources/golden.wav $(BundleResources)
-
-            resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf $(BundleResources)
-            resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BundleResources)
-            resources/IBM_Plex_Mono/OFL.txt                 $(BundleResources)
-        }
-
-        Cmd codesign --force --sign - $(BundleApp)
-        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(arch).zip
-    }
-}
-
 SourceFiles         Source/Program
-SourceFiles:windows Resources/GoldenDecoder_WindowIcon
+SourceFiles:windows Source/GoldenDecoder_WindowIcon
 
 Compiler.Flags          $SharedCompilerFlags
 Linker.Flags            $SharedLinkerFlags
@@ -72,17 +48,22 @@ if windows
     Libraries           gdi32 winmm
 }
 
-PostBuild
+PostBuild.Copy resources/* $(BuildDirectory)/resources
+
+if macos
 {
-    Copy
+    Apple.Bundle
+
+    BundleApp       $(BuildDirectory)/$(Assembly).app
+    BundleContents  $(BundleApp)/Contents
+    BundleResources $(BundleContents)/Resources/resources
+
+    PostBuild
     {
-        resources/golden.wav $(BuildDirectory)/resources
+        Copy resources/* $(BundleResources)
 
-        resources/$(IconFile).* $(BuildDirectory)/resources
-
-        resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf $(BuildDirectory)/resources
-        resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf    $(BuildDirectory)/resources
-        resources/IBM_Plex_Mono/OFL.txt                 $(BuildDirectory)/resources
+        Cmd codesign --force --sign - $(BundleApp)
+        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(arch).zip
     }
 }
 
