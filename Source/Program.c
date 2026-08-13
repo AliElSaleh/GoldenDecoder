@@ -1056,10 +1056,10 @@ void LoadUIFonts(UIFonts* Fonts)
         PixelDensity = 1.0f;
     }
 
-    Fonts->Title = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf",    (i32)(TitleFontSize    * PixelDensity), NULL, 0);
-    Fonts->Body  = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(BodyFontSize     * PixelDensity), NULL, 0);
-    Fonts->Small = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(SmallFontSize    * PixelDensity), NULL, 0);
-    Fonts->Menu  = LoadFontEx("resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(MenuFontSize      * PixelDensity), NULL, 0);
+    Fonts->Title = LoadFontEx("Resources/IBM_Plex_Mono/IBMPlexMono-Bold.ttf",    (i32)(TitleFontSize    * PixelDensity), NULL, 0);
+    Fonts->Body  = LoadFontEx("Resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(BodyFontSize     * PixelDensity), NULL, 0);
+    Fonts->Small = LoadFontEx("Resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(SmallFontSize    * PixelDensity), NULL, 0);
+    Fonts->Menu  = LoadFontEx("Resources/IBM_Plex_Mono/IBMPlexMono-Regular.ttf", (i32)(MenuFontSize      * PixelDensity), NULL, 0);
 
     // the big title is the one face drawn well below the size it bakes at, in the menu header
     SetTextureFilter(Fonts->Title.texture, TEXTURE_FILTER_BILINEAR);
@@ -1138,7 +1138,7 @@ i32 main(void)
     ChangeDirectory(GetApplicationDirectory());
 
     #if defined(__APPLE__)
-    if (DirectoryExists("../Resources/resources"))
+    if (DirectoryExists("../Resources/Resources"))
     {
         ChangeDirectory("../Resources");
     }
@@ -1155,8 +1155,8 @@ i32 main(void)
 
     InitAudioDevice();
 
-    Music GoldenWav = LoadMusicStream("resources/golden.wav");
-    Wave Wav = LoadWave("resources/golden.wav");
+    Music GoldenWav = LoadMusicStream("Resources/golden.wav");
+    Wave Wav = LoadWave("Resources/golden.wav");
 
     bool bHaveWave  = IsWaveValid(Wav);
     bool bHaveMusic = IsMusicValid(GoldenWav);
@@ -1165,7 +1165,7 @@ i32 main(void)
 
     if (!bHaveMusic || !bHaveWave || Samples == NULL)
     {
-        TraceLog(LOG_ERROR, "resources/golden.wav is missing or is not a readable wav file.");
+        TraceLog(LOG_ERROR, "Resources/golden.wav is missing or is not a readable wav file.");
         TraceLog(LOG_ERROR, "if this is a fresh clone, the audio is stored in git lfs: install it and run \"git lfs pull\".");
 
         UnloadWaveSamples(Samples);

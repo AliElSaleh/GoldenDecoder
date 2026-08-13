@@ -39,8 +39,9 @@ Compiler.Flags          $SharedCompilerFlags
 Linker.Flags            $SharedLinkerFlags
 Compiler.Includes       . Libraries
 Library.Paths           Libraries
-Libraries               Raylib-&Platform-&arch
+Libraries               Raylib-&Platform-&cpu.arch
 Libraries:windows       &NativeLibs
+Libraries:linux         m X11
 Apple.Frameworks        Foundation AppKit IOKit
 
 if windows
@@ -48,7 +49,7 @@ if windows
     Libraries           gdi32 winmm
 }
 
-PostBuild.Copy resources/* $(BuildDirectory)/resources
+PostBuild.Copy Resources/* $(BuildDirectory)/Resources
 
 if macos
 {
@@ -56,11 +57,11 @@ if macos
 
     BundleApp       $(BuildDirectory)/$(Assembly).app
     BundleContents  $(BundleApp)/Contents
-    BundleResources $(BundleContents)/Resources/resources
+    BundleResources $(BundleContents)/Resources/Resources
 
     PostBuild
     {
-        Copy resources/* $(BundleResources)
+        Copy Resources/* $(BundleResources)
 
         Cmd codesign --force --sign - $(BundleApp)
         Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(arch).zip
@@ -68,5 +69,12 @@ if macos
 }
 
 Assert.Platform Windows:x64 Linux:x64 Linux:arm64 macOS
+Assert.File Resources/golden.wav
+File.Resources/golden.wav.ErrorMessage
+{
+    Resources/golden.wav is missing
+    
+    if this is a fresh clone, the audio is stored in git lfs: install it and run: git lfs pull
+}
 
 option.mode(Debug Release)
