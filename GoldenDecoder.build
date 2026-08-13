@@ -2,6 +2,7 @@ Compiler:windows msvc
 Compiler:unix    gcc
 
 Assembly(preserve_case) GoldenDecoder
+Version 0.8
 .Run
 
 IconFile Voyager_Golden_Record
