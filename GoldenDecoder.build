@@ -1,5 +1,6 @@
 Compiler:windows msvc
-Compiler:unix    gcc
+Compiler:linux   gcc
+Compiler:apple   clang
 
 Assembly(preserve_case) GoldenDecoder
 Version 0.8
@@ -38,6 +39,8 @@ SourceFiles:windows Source/GoldenDecoder_WindowIcon
 
 Compiler.Flags          $SharedCompilerFlags
 Linker.Flags            $SharedLinkerFlags
+Compiler.Flags:macos    -mmacosx-version-min=11.0
+Linker.Flags:macos      -mmacosx-version-min=11.0
 Compiler.Includes       . Libraries
 Library.Paths           Libraries
 Libraries               Raylib-&Platform-&cpu.arch
@@ -65,7 +68,7 @@ if macos
         Copy Resources/* $(BundleResources)
 
         Cmd codesign --force --sign - $(BundleApp)
-        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(arch).zip
+        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
     }
 }
 
