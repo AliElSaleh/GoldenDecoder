@@ -1132,6 +1132,40 @@ void FitWindowToMonitor(void)
 
     SetWindowPosition(PositionX, PositionY);
 }
+#if defined(__linux__)
+void SetWindowIconFromFile(const char* FileName)
+{
+    const i32 IconSizes[] = {16, 24, 32, 48, 64, 128, 256};
+    const i32 IconCount   = 7;
+
+    Image Source = LoadImage(FileName);
+    if (!IsImageValid(Source))
+    {
+        TraceLog(LOG_WARNING, "%s is missing, keeping the default window icon.", FileName);
+        return;
+    }
+
+    // SetWindowIcons only accepts RGBA32, it will not convert for us
+    ImageFormat(&Source, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+    Image Icons[7] = {0};
+    for (i32 i = 0; i < IconCount; i++)
+    {
+        Icons[i] = ImageCopy(Source);
+        ImageResize(&Icons[i], IconSizes[i], IconSizes[i]);
+    }
+
+    SetWindowIcons(Icons, IconCount);
+
+    // the icons are copied into the platform layer, so the originals are ours to free
+    for (i32 i = 0; i < IconCount; i++)
+    {
+        UnloadImage(Icons[i]);
+    }
+
+    UnloadImage(Source);
+}
+#endif
 
 i32 main(void)
 {
@@ -1146,6 +1180,11 @@ i32 main(void)
 
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
     InitWindow(DesignWidth, DesignHeight, "Golden Decoder");
+
+    #if defined(__linux__)
+    SetWindowIconFromFile("Resources/Voyager_Golden_Record.png");
+    #endif
+
     SetWindowMinSize(MinWindowWidth, MinWindowHeight);
     FitWindowToMonitor();
     SetTargetFPS(0);
