@@ -34,7 +34,7 @@ if mode == debug
 
 SharedCompilerFlags:msvc /MD
 
-SourceFiles         Source/Program
+SourceFiles         Source/Program #Source/Decoder
 SourceFiles:windows Source/GoldenDecoder_WindowIcon
 
 Compiler.Flags          $SharedCompilerFlags
@@ -68,7 +68,7 @@ if macos
         Copy Resources/* $(BundleResources)
 
         Cmd codesign --force --sign - $(BundleApp)
-        Cmd ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
+        Cmd:zip ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
     }
 }
 
