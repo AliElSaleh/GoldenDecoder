@@ -1,57 +1,47 @@
 #include "raylib.h"
 #include <math.h>
 
-// Unsigned integer types
 typedef unsigned char        u8;
 typedef unsigned short       u16;
 typedef unsigned int         u32;
 typedef unsigned long long   u64;
 
-// Signed integer types
 typedef signed char          i8;
 typedef signed short         i16;
 typedef signed int           i32;
 typedef signed long long     i64;
 
-// floating-point types
 typedef float                f32;
 typedef double               f64;
 
-const i32 DesignWidth  = 1920;
-const i32 DesignHeight = 1080;
+const i32 DesignWidth             = 1920;
+const i32 DesignHeight            = 1080;
+const i32 MinWindowWidth          = 854;
+const i32 MinWindowHeight         = 480;
+const f32 WindowScreenMargin      = 0.9f;
+const i32 WindowTopMargin         = 60;
 
-const i32 MinWindowWidth  = 854;
-const i32 MinWindowHeight = 480;
-
-const f32 WindowScreenMargin = 0.9f;
-const i32 WindowTopMargin = 60;
-
-const i32 DesignLeftOffset = 950;
-
-const f32 DesignImageScale = 1.8f;
-
-const i32 DesignTitleFontSize = 65;
-const i32 DesignBodyFontSize  = 20;
-const i32 DesignSmallFontSize = 18;
-// 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
-const i32 DesignMenuFontSize      = 20;
+const i32 DesignLeftOffset        = 950;
+const f32 DesignImageScale        = 1.8f;
+const i32 DesignTitleFontSize     = 65;
+const i32 DesignBodyFontSize      = 20;
+const i32 DesignSmallFontSize     = 18;
+const i32 DesignMenuFontSize      = 20; // 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
 const i32 DesignMenuTitleFontSize = 30;
 
-const i32 ImageScanWidth  = 600;
-const i32 ImageScanHeight = 430;
+const i32 ImageScanWidth          = 600;
+const i32 ImageScanHeight         = 430;
 
-const f32 RevealCharsPerSecond = 15.0f;
-const f32 RevealInstantSeconds = 1000.0f;
+const f32 RevealCharsPerSecond    = 15.0f;
 
-const f32 MenuExitHoldSeconds = 1.0f;
+const f32 MenuExitHoldSeconds     = 1.0f;
 
-const f32 FontSpacing = 0.0f;
+const f32 FontSpacing             = 0.0f;
 
-// live values for the current window size. zero scale forces the first UpdateLayoutScale to build them
 f32 UIScale = 0.0f;
+f32 MusicCursor = 0.0f;
 
 i32 LeftOffset;
-
 f32 ImageScale;
 
 i32 TitleFontSize;
@@ -60,11 +50,15 @@ i32 SmallFontSize;
 i32 MenuFontSize;
 i32 MenuTitleFontSize;
 
+f32  MenuEscapeHeld   = 0.0f;
+
 bool bPaused          = false;
 bool bMenuOpen        = false;
 bool bMenuEscapeArmed = false;
 bool bQuitRequested   = false;
-f32  MenuEscapeHeld   = 0.0f;
+
+Music GoldenMusic = {0};
+Wave GoldenWav = {0};
 
 i32 Scaled(i32 DesignPixels)
 {
@@ -151,6 +145,7 @@ typedef struct
     Image* ScanImage;
     Texture2D ScanTexture;
     TextReveal RevealState;
+    bool bLeftChannel;
 } RecordPlayer;
 
 #define SAMPLES_FACTOR (1.0f/(60.0f))
@@ -624,7 +619,7 @@ void UpdateTextReveal(TextReveal* Reveal, i32 MappingIndex, EImageColorChannel C
 
         bool bLaterColorPass = (ColorChannel == Green) || (ColorChannel == Blue);
 
-        Reveal->Elapsed = bLaterColorPass ? RevealInstantSeconds : 0.0f;
+        Reveal->Elapsed = bLaterColorPass ? 1000.0f : 0.0f;
     }
     else
     {
@@ -986,6 +981,150 @@ void Draw(void)
 
 }
 
+bool RecordPlayer_DecodeStep(f32* Samples, Wave Wav, RecordPlayer* Player, ImageMetaData ImageMetaData)
+{
+    bool bSuccess = false;
+
+    u32 SamplesPerLine     = (f32)Wav.sampleRate * SAMPLES_FACTOR;
+    u32 Slack              = 0.05 * (f32)SamplesPerLine;
+    u32 NextLinePrediction = (Player->Cursor + (SamplesPerLine - Slack));
+
+    i32 PeakIndex = -1;
+    f32 PeakValue = 0;
+
+    DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, Player->bLeftChannel, ImageMetaData.OverrideParams, &PeakIndex, &PeakValue);
+
+    f32 BestScore = SyncPeak(Samples, Player->Cursor, SamplesPerLine, Wav.channels, Player->bLeftChannel) / SamplesPerLine;
+
+    bool bIsBeep = DetectBeep(Samples, Player->Cursor, SamplesPerLine, Wav, Player->bLeftChannel);
+
+    /*
+    if (bIsBeep)
+    {
+        printf("Beep!\n");
+    }
+    */
+
+    f32 Diff = fabsf(BestScore - Player->Threshold);
+    bool bWithinBand = Diff < 0.1f;
+    if (bWithinBand && !bIsBeep)
+    {
+        u32 NewOffset = NextLinePrediction + PeakIndex;
+
+        u32 NextLineSamplesActual = NewOffset - Player->Cursor;
+
+        f64 Black = -0.1;
+        f64 White = 0.07;
+
+        f64 ImageStart  = Player->Cursor;
+        f64 ImageLen    = NextLineSamplesActual;
+
+        i32 ImageWidth  = Player->ScanImage->width;
+        i32 ImageHeight = Player->ScanImage->height;
+        
+        for (i32 y = 0; Player->ScanLine < ImageWidth && y < ImageHeight; y++)
+        {
+            u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageHeight) * ImageLen;
+            u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageHeight) * ImageLen;
+            if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
+
+            f64 Sum = 0;
+            for (u64 i = SampleIndex0; i < SampleIndex1; i++)
+            {
+                Sum += Samples[i * Wav.channels + (Player->bLeftChannel ? 0 : 1)];
+            }
+            f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
+
+            i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
+            if (V < 0)
+            {
+                V = 0;
+            }
+            else if (V > 255)
+            {
+                V = 255;
+            }
+
+            V = 255 - V;
+
+            Color CurrentColor = GetImageColor(*Player->ScanImage, Player->ScanLine, y);
+            Color PixelColor = {0};
+            switch (ImageMetaData.ColorChannel)
+            {
+                default:
+                case Mono:
+                {
+                    PixelColor = (Color){ V, V, V, 255 };
+                }
+                break;
+
+                case Red:
+                {
+                    CurrentColor.r = V;
+                    CurrentColor.g = 0;
+                    CurrentColor.b = 0;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Green:
+                {
+                    CurrentColor.g = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Blue:
+                {
+                    CurrentColor.b = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+            }
+
+            PixelColor.a = 255;
+
+            ImageDrawPixel(Player->ScanImage, Player->ScanLine, y, PixelColor);
+        }
+
+        Player->Cursor = NewOffset;
+        bSuccess = true;
+    }
+
+    return bSuccess;
+}
+
+void RecordPlayer_Update(f32* Samples, RecordPlayer* Player)
+{
+    u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
+
+    f32 Peak = SyncPeak(Samples, Player->Cursor, SamplesPerLine, GoldenWav.channels, Player->bLeftChannel);
+    Player->Threshold = Peak/SamplesPerLine;
+
+    while (Player->Cursor <= MusicCursor)
+    {
+        ImageMetaData MetaData = GetImageMetaDataFromSampleOffset(Player->Cursor, Player->bLeftChannel);
+
+        if (RecordPlayer_DecodeStep(Samples, GoldenWav, Player, MetaData))
+        {
+            Player->ScanLine++;
+        }
+        else
+        {
+            Player->ScanLine = 0;
+            Player->Cursor = MusicCursor;
+            break;
+        }
+    }
+
+    UpdateTexture(Player->ScanTexture, Player->ScanImage->data);
+}
+
+void RecordPlayer_Draw(RecordPlayer* Player)
+{
+    // TODO
+}
+
 void Init(void)
 {
     ChangeDirectory(GetApplicationDirectory());
@@ -1018,13 +1157,13 @@ i32 main(void)
 {
     Init();
 
-    Music GoldenMusic = LoadMusicStream("Resources/golden.wav");
-    Wave Wav = LoadWave("Resources/golden.wav");
+    GoldenMusic = LoadMusicStream("Resources/golden.wav");
+    GoldenWav = LoadWave("Resources/golden.wav");
 
-    bool bHaveWave  = IsWaveValid(Wav);
+    bool bHaveWave  = IsWaveValid(GoldenWav);
     bool bHaveMusic = IsMusicValid(GoldenMusic);
 
-    f32* Samples = bHaveWave ? LoadWaveSamples(Wav) : NULL;
+    f32* Samples = bHaveWave ? LoadWaveSamples(GoldenWav) : NULL;
 
     if (!bHaveMusic || !bHaveWave || Samples == NULL)
     {
@@ -1032,7 +1171,7 @@ i32 main(void)
         TraceLog(LOG_ERROR, "if this is a fresh clone, the audio is stored in git lfs: install it and run \"git lfs pull\".");
 
         UnloadWaveSamples(Samples);
-        UnloadWave(Wav);
+        UnloadWave(GoldenWav);
         UnloadMusicStream(GoldenMusic);
         CloseAudioDevice();
         CloseWindow();
@@ -1057,14 +1196,29 @@ i32 main(void)
     UIFonts Fonts = {0};
     LoadUIFonts(&Fonts);
     
-    u32 SamplesPerLine = Wav.sampleRate * SAMPLES_FACTOR;
+    u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
 
-    RecordPlayer Player_LeftChannel  = {.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .RevealState = (TextReveal){.MappingIndex = -1}};
-    RecordPlayer Player_RightChannel = {.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .RevealState = (TextReveal){.MappingIndex = -1}};
+    RecordPlayer Player_LeftChannel  = {.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .bLeftChannel = true,  .RevealState = (TextReveal){.MappingIndex = -1}};
+    RecordPlayer Player_RightChannel = {.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .bLeftChannel = false, .RevealState = (TextReveal){.MappingIndex = -1}};
 
     while (!WindowShouldClose() && !bQuitRequested)
     {
         UpdateMusicStream(GoldenMusic);
+
+        if (IsKeyPressed(KEY_SPACE))
+        {
+            bPaused = !bPaused;
+            if (bPaused)
+            {
+                PauseMusicStream(GoldenMusic);
+            }
+            else
+            {
+                ResumeMusicStream(GoldenMusic);
+            }
+        }
+
+        MusicCursor = (f32)GetMusicTimePlayed(GoldenMusic) * (f32)GoldenWav.sampleRate;
 
         if (UpdateLayoutScale())
         {
@@ -1114,19 +1268,6 @@ i32 main(void)
             ToggleBorderlessWindowed();
         }
 
-        if (IsKeyPressed(KEY_SPACE))
-        {
-            bPaused = !bPaused;
-            if (bPaused)
-            {
-                PauseMusicStream(GoldenMusic);
-            }
-            else
-            {
-                ResumeMusicStream(GoldenMusic);
-            }
-        }
-
         u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
 
         if (!bIsControl)
@@ -1139,16 +1280,12 @@ i32 main(void)
     
                 if (Target >= 0 && Target < (i32)NumMappings)
                 {
-                    SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, Wav, GoldenMusic);
+                    SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, GoldenWav, GoldenMusic);
     
                     bMenuOpen = false;
                 }
             }
-        }
 
-        // ctrl is a window modifier, so it never picks an image out from under the shortcut
-        if (!bIsControl)
-        {
             for (u32 i = 0; i < NumMappings; i++)
             {
                 ImageMapping M = ImageMappings[i];
@@ -1157,7 +1294,7 @@ i32 main(void)
                 {
                     if (IsKeyPressed(M.ShiftKey))
                     {
-                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, Wav, GoldenMusic);
+                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, GoldenWav, GoldenMusic);
                         bMenuOpen = false;
                         break;
                     }
@@ -1166,7 +1303,7 @@ i32 main(void)
                 {
                     if (IsKeyPressed(M.Key))
                     {
-                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, Wav, GoldenMusic);
+                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, GoldenWav, GoldenMusic);
                         bMenuOpen = false;
                         break;
                     }
@@ -1174,54 +1311,8 @@ i32 main(void)
             }
         }
 
-        f32 MusicCursor = (f32)GetMusicTimePlayed(GoldenMusic) * (f32)Wav.sampleRate;
-
-        {
-            f32 Peak = SyncPeak(Samples, Player_LeftChannel.Cursor, SamplesPerLine, Wav.channels, true);
-            Player_LeftChannel.Threshold = Peak/SamplesPerLine;
-        }
-
-        while (Player_LeftChannel.Cursor <= MusicCursor)
-        {
-            // this loop can cross an image boundary, so every line decodes with its own image's tuning
-            ImageMetaData LineData = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
-
-            if (DecodeImage_Step(Samples, Player_LeftChannel.ScanLine, Wav, Player_LeftChannel.ScanImage, Player_LeftChannel.ScanTexture, true, &Player_LeftChannel.Cursor, Player_LeftChannel.Threshold, LineData.ColorChannel, LineData.OverrideParams))
-            {
-                Player_LeftChannel.ScanLine++;
-            }
-            else
-            {
-                Player_LeftChannel.ScanLine = 0;
-                Player_LeftChannel.Cursor = MusicCursor;
-                break;
-            }
-        }
-
-        {
-
-            f32 Peak = SyncPeak(Samples, Player_RightChannel.Cursor, SamplesPerLine, Wav.channels, false);
-            Player_RightChannel.Threshold = Peak/SamplesPerLine;
-        }
-
-        while (Player_RightChannel.Cursor <= MusicCursor)
-        {
-            ImageMetaData LineData = GetImageMetaDataFromSampleOffset(Player_RightChannel.Cursor, false);
-
-            if (DecodeImage_Step(Samples, Player_RightChannel.ScanLine, Wav, Player_RightChannel.ScanImage, Player_RightChannel.ScanTexture, false, &Player_RightChannel.Cursor, Player_RightChannel.Threshold, LineData.ColorChannel, LineData.OverrideParams))
-            {
-                Player_RightChannel.ScanLine++;
-            }
-            else
-            {
-                Player_RightChannel.ScanLine = 0;
-                Player_RightChannel.Cursor = MusicCursor;
-                break;
-            }
-        }
-
-        UpdateTexture(Player_RightChannel.ScanTexture, Player_RightChannel.ScanImage->data);
-        UpdateTexture(Player_LeftChannel.ScanTexture, Player_LeftChannel.ScanImage->data);
+        RecordPlayer_Update(Samples, &Player_LeftChannel);
+        RecordPlayer_Update(Samples, &Player_RightChannel);
 
         // the decode loops moved the cursors, so this is what the cursors are actually sitting on now
         ImageMetaData LeftData  = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
@@ -1313,10 +1404,10 @@ i32 main(void)
             NumSamplesToDraw--;
         }
 
-        DrawChannelWaveform(Samples, Wav, Player_LeftChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
+        DrawChannelWaveform(Samples, GoldenWav, Player_LeftChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
                             true,  BaseLocationX, BaseLocationY, Scan_Left.width, Scan_Left.height);
 
-        DrawChannelWaveform(Samples, Wav, Player_RightChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
+        DrawChannelWaveform(Samples, GoldenWav, Player_RightChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
                             false, BaseLocationX + LeftOffset, BaseLocationY, Scan_Left.width, Scan_Left.height);
 
         if (bMenuOpen)
