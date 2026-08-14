@@ -3,7 +3,7 @@ Compiler:linux   gcc
 Compiler:apple   clang
 
 Assembly(preserve_case) GoldenDecoder
-Version 0.8
+Version 0.9
 .Run
 
 IconFile Voyager_Golden_Record
