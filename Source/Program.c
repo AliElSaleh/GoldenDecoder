@@ -37,6 +37,17 @@ const f32 RevealCharsPerSecond    = 15.0f;
 
 const f32 MenuExitHoldSeconds     = 1.0f;
 
+const f32 IntroRevealCharsPerSecond = 16.0f;
+const f32 IntroHoldSeconds          = 2.0f;
+const f32 IntroFadeSeconds          = 1.0f;
+const f32 IntroHintDelaySeconds     = 1.5f;
+const f32 IntroHintFadeSeconds      = 0.8f;
+const f32 IntroQuoteWidthFraction   = 0.8f;
+
+const i32 DesignQuoteLineGap        = 18;
+const i32 DesignQuoteAttributionGap = 46;
+const i32 DesignQuoteHintMargin     = 90;
+
 const f32 FontSpacing             = 0.0f;
 
 f32 UIScale = 0.0f;
@@ -57,6 +68,10 @@ bool bPaused          = false;
 bool bMenuOpen        = false;
 bool bMenuEscapeArmed = false;
 bool bQuitRequested   = false;
+
+// the record does not start turning until the opening quote is done or skipped
+bool bIntroActive     = true;
+f32  IntroElapsed     = 0.0f;
 
 // how many scan lines of raw audio trail behind the cursor in the waveform strip
 u32 NumScanlinesToDraw = 6;
@@ -174,13 +189,25 @@ UIFonts Fonts = {0};
 RecordPlayer Player_LeftChannel  = {0};
 RecordPlayer Player_RightChannel = {0};
 
+const char* IntroQuoteLines[] =
+{
+    "Billions of years from now our sun, then a distended",
+    "red giant star, will have reduced Earth to a charred",
+    "cinder.",
+    "But the Voyager record will still be largely",
+    "intact, in some other remote region of the Milky Way",
+    "galaxy, preserving a murmur of an ancient",
+    "civilization that once flourished ..."
+};
+
+const char* IntroAttribution = "Carl Sagan, Murmurs of Earth (1978)";
+
 #define SAMPLES_FACTOR (1.0f/(60.0f))
 
-// TODO: clickable web links to go to original source
-// TODO: quote at beginning of the experience. tap any key to skip to the decoding
 // TODO: export to jpeg
 // TODO: rotate portrait images
 // TODO: add descriptions to almost all images
+// TODO: fix crash when the music is finished/reached the end. loop back to beginning instead
 
 // names referenced from: 
 //    https://science.nasa.gov/mission/voyager/golden-record-contents/images/
@@ -686,7 +713,7 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
     i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
-    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    LEFT/RIGHT STEP IMAGES";
+    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    C-R REPLAY INTRO    LEFT/RIGHT STEP IMAGES";
     DrawTextEx(RowFont, FooterText,
                (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
                MenuFontSize, FontSpacing, GRAY);
@@ -1132,6 +1159,176 @@ void Init(void)
     InitAudioDevice();
 }
 
+void ResetRecordPlayer(RecordPlayer* Player)
+{
+    Player->ImageOffset  = 0;
+    Player->Cursor       = 0;
+    Player->ScanLine     = 0;
+    Player->Threshold    = 0.0f;
+    Player->ChannelIndex = -1;
+    Player->MetaData     = (ImageMetaData){0};
+    Player->RevealState  = (TextReveal){.MappingIndex = -1};
+
+    ImageClearBackground(Player->ScanImage, BLANK);
+    UpdateTexture(Player->ScanTexture, Player->ScanImage->data);
+}
+
+// the decoders follow the music cursor, so a rewind of the track has to rewind them too
+void RestartIntro(void)
+{
+    bIntroActive = true;
+    IntroElapsed = 0.0f;
+    bMenuOpen    = false;
+    bPaused      = false;
+
+    StopMusicStream(GoldenMusic);
+
+    ResetRecordPlayer(&Player_LeftChannel);
+    ResetRecordPlayer(&Player_RightChannel);
+}
+
+// the control chords work in both stages, and they never count as a skip of the intro
+bool UpdateControlChordInput(void)
+{
+    if (!IsKeyDown(KEY_LEFT_CONTROL) && !IsKeyDown(KEY_RIGHT_CONTROL))
+    {
+        return false;
+    }
+
+    if (IsKeyPressed(KEY_F))
+    {
+        ToggleBorderlessWindowed();
+    }
+
+    if (IsKeyPressed(KEY_R))
+    {
+        RestartIntro();
+    }
+
+    return true;
+}
+
+f32 GetIntroTypingSeconds(void)
+{
+    u32 NumLines = sizeof(IntroQuoteLines) / sizeof(IntroQuoteLines[0]);
+
+    i32 TotalChars = (i32)TextLength(IntroAttribution);
+    for (u32 i = 0; i < NumLines; i++)
+    {
+        TotalChars += (i32)TextLength(IntroQuoteLines[i]);
+    }
+
+    return (f32)TotalChars / IntroRevealCharsPerSecond;
+}
+
+f32 GetIntroFadeStartSeconds(void)
+{
+    return GetIntroTypingSeconds() + IntroHoldSeconds;
+}
+
+f32 GetIntroAlpha(void)
+{
+    f32 FadeStart = GetIntroFadeStartSeconds();
+
+    if (IntroElapsed <= FadeStart)
+    {
+        return 1.0f;
+    }
+
+    f32 Result = 1.0f - (IntroElapsed - FadeStart) / IntroFadeSeconds;
+
+    if (Result < 0.0f)
+    {
+        Result = 0.0f;
+    }
+
+    return Result;
+}
+
+void EndIntro(void)
+{
+    bIntroActive = false;
+
+    PlayMusicStream(GoldenMusic);
+}
+
+void UpdateIntro(void)
+{
+    IntroElapsed += GetFrameTime();
+
+    if (UpdateControlChordInput())
+    {
+        return;
+    }
+
+    bool bSkipped = (GetKeyPressed() != KEY_NULL);
+
+    if (bSkipped || IntroElapsed >= GetIntroFadeStartSeconds() + IntroFadeSeconds)
+    {
+        EndIntro();
+    }
+}
+
+void DrawIntro(void)
+{
+    u32 NumLines = sizeof(IntroQuoteLines) / sizeof(IntroQuoteLines[0]);
+
+    f32 Alpha = GetIntroAlpha();
+
+    i32 MaxLineWidth = (i32)(GetScreenWidth() * IntroQuoteWidthFraction);
+
+    // one size for every line, so the block reads as a single piece of text
+    i32 QuoteFontSize = TitleFontSize;
+    for (u32 i = 0; i < NumLines; i++)
+    {
+        i32 LineFontSize = FitFontSize(Fonts.Title, IntroQuoteLines[i], MaxLineWidth, TitleFontSize, SmallFontSize);
+        if (LineFontSize < QuoteFontSize) QuoteFontSize = LineFontSize;
+    }
+
+    i32 LineGap         = Scaled(DesignQuoteLineGap);
+    i32 AttributionGap  = Scaled(DesignQuoteAttributionGap);
+
+    i32 QuoteHeight = NumLines*QuoteFontSize + (NumLines-1)*LineGap;
+    i32 BlockHeight = QuoteHeight + AttributionGap + BodyFontSize;
+    i32 BlockY      = GetScreenHeight()/2 - BlockHeight/2;
+
+    i32 Budget = (i32)(IntroElapsed * IntroRevealCharsPerSecond);
+
+    for (u32 i = 0; i < NumLines; i++)
+    {
+        const char* Line = IntroQuoteLines[i];
+
+        i32 LineChars = TakeRevealedChars(&Budget, Line);
+        f32 LineWidth = MeasureTextEx(Fonts.Title, Line, (f32)QuoteFontSize, FontSpacing).x;
+
+        DrawRevealedText(Fonts.Title, Line, LineChars,
+                         (Vector2){GetScreenWidth()*0.5f - LineWidth*0.5f, (f32)(BlockY + i*(QuoteFontSize + LineGap))},
+                         QuoteFontSize, Fade(WHITE, Alpha));
+    }
+
+    i32 AttributionChars = TakeRevealedChars(&Budget, IntroAttribution);
+    f32 AttributionWidth = MeasureTextEx(Fonts.Body, IntroAttribution, (f32)BodyFontSize, FontSpacing).x;
+
+    DrawRevealedText(Fonts.Body, IntroAttribution, AttributionChars,
+                     (Vector2){GetScreenWidth()*0.5f - AttributionWidth*0.5f, (f32)(BlockY + QuoteHeight + AttributionGap)},
+                     BodyFontSize, Fade(GRAY, Alpha));
+
+    // the prompt holds off for a moment so it does not compete with the opening line
+    f32 HintAlpha = (IntroElapsed - IntroHintDelaySeconds) / IntroHintFadeSeconds;
+
+    if (HintAlpha > 1.0f) HintAlpha = 1.0f;
+
+    if (HintAlpha > 0.0f)
+    {
+        const char* HintText = "TAP ANY KEY TO SKIP";
+
+        DrawTextEx(Fonts.Menu, HintText,
+                   (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(Fonts.Menu, HintText, (f32)MenuFontSize, FontSpacing).x*0.5f,
+                             (f32)(GetScreenHeight() - Scaled(DesignQuoteHintMargin))},
+                   MenuFontSize, FontSpacing, Fade(WHITE, 0.4f * HintAlpha * Alpha));
+    }
+}
+
 void UpdatePlaybackInput(void)
 {
     if (IsKeyPressed(KEY_SPACE))
@@ -1220,15 +1417,8 @@ void UpdateImageSelectionInput(void)
 
 void UpdateShortcutInput(void)
 {
-    bool bIsControl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-
-    if (bIsControl)
+    if (UpdateControlChordInput())
     {
-        if (IsKeyPressed(KEY_F))
-        {
-            ToggleBorderlessWindowed();
-        }
-
         return;
     }
 
@@ -1295,11 +1485,18 @@ void UpdateSourceLinkInput(void)
 
 void Update(void)
 {
+    UpdateLayoutAndFonts();
+
+    if (bIntroActive)
+    {
+        UpdateIntro();
+        return;
+    }
+
     UpdateMusicStream(GoldenMusic);
 
     UpdatePlaybackInput();
 
-    UpdateLayoutAndFonts();
     UpdateMenuInput();
     UpdateShortcutInput();
 
@@ -1356,11 +1553,13 @@ void DrawPlaybackTime(UILayout Layout)
 
 void Draw(void)
 {
+    if (bIntroActive)
+    {
+        DrawIntro();
+        return;
+    }
+
     UILayout Layout = GetUILayout();
-
-    BeginDrawing();
-
-    ClearBackground(BLACK);
 
     DrawRecordProgress();
     DrawPlaybackTime(Layout);
@@ -1372,8 +1571,6 @@ void Draw(void)
     {
         DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld, Player_LeftChannel.ChannelIndex);
     }
-
-    EndDrawing();
 }
 
 i32 main(void)
@@ -1388,21 +1585,22 @@ i32 main(void)
 
     GoldenSamples = bHaveWave ? LoadWaveSamples(GoldenWav) : NULL;
 
+    // nothing reads the raw 16-bit data after the f32 conversion, only sampleRate, channels and frameCount
+    UnloadWave(GoldenWav);
+    GoldenWav.data = NULL;
+
     if (!bHaveMusic || !bHaveWave || GoldenSamples == NULL)
     {
         TraceLog(LOG_ERROR, "Resources/golden.wav is missing or is not a readable wav file.");
         TraceLog(LOG_ERROR, "if this is a fresh clone, the audio is stored in git lfs: install it and run \"git lfs pull\".");
 
         UnloadWaveSamples(GoldenSamples);
-        UnloadWave(GoldenWav);
         UnloadMusicStream(GoldenMusic);
         CloseAudioDevice();
         CloseWindow();
 
         return 1;
     }
-
-    PlayMusicStream(GoldenMusic);
 
     Image Scan_Left = GenImageColor(ImageScanWidth, ImageScanHeight, BLANK);
     Texture2D ScanTexture_Left = LoadTextureFromImage(Scan_Left);
@@ -1423,7 +1621,11 @@ i32 main(void)
     while (!WindowShouldClose() && !bQuitRequested)
     {
         Update();
+
+        BeginDrawing();
+        ClearBackground(BLACK);
         Draw();
+        EndDrawing();
     }
 
     UnloadUIFonts(&Fonts);
