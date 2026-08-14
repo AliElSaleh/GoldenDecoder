@@ -57,8 +57,12 @@ bool bMenuOpen        = false;
 bool bMenuEscapeArmed = false;
 bool bQuitRequested   = false;
 
-Music GoldenMusic = {0};
-Wave GoldenWav = {0};
+// how many scan lines of raw audio trail behind the cursor in the waveform strip
+u32 NumScanlinesToDraw = 6;
+
+Music GoldenMusic    = {0};
+Wave  GoldenWav      = {0};
+f32*  GoldenSamples  = NULL;
 
 i32 Scaled(i32 DesignPixels)
 {
@@ -79,6 +83,21 @@ typedef struct
     Font Small;
     Font Menu;
 } UIFonts;
+
+// every on-screen position hangs off the window size and the current UI scale, so the
+// whole layout is recomputed each frame instead of being cached and invalidated
+typedef struct
+{
+    i32 BaseLocationX;
+    i32 BaseLocationY;
+    i32 ColumnWidth;
+    i32 LeftColumnX;
+    i32 RightColumnX;
+    i32 CursorY;
+    i32 NameY;
+    i32 SourceY;
+    i32 DescriptionY;
+} UILayout;
 
 typedef u8 EImageColorChannel;
 enum
@@ -145,8 +164,17 @@ typedef struct
     Image* ScanImage;
     Texture2D ScanTexture;
     TextReveal RevealState;
+
+    ImageMetaData MetaData;
+    i32 ChannelIndex;
+
     bool bLeftChannel;
 } RecordPlayer;
+
+UIFonts Fonts = {0};
+
+RecordPlayer Player_LeftChannel  = {0};
+RecordPlayer Player_RightChannel = {0};
 
 #define SAMPLES_FACTOR (1.0f/(60.0f))
 
@@ -156,6 +184,7 @@ typedef struct
 // TODO: google maps coordinates of where pictures were taken
 // TODO: export to jpeg
 // TODO: rotate portrait images
+// TODO: add descriptions to almost all images
 
 // names referenced from: 
 //    https://science.nasa.gov/mission/voyager/golden-record-contents/images/
@@ -461,119 +490,6 @@ bool DetectBeep(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool
     return bResult;
 }
 
-bool DecodeImage_Step(f32* Samples, u64 StepIndex, Wave Wav, Image* OutputImage, Texture2D OutputTexture, bool bLeftChannel,
-                      u32* Cursor, f32 Threshold, EImageColorChannel ColorChannel, ScanTriggerThresholdParams* OverrideParams)
-{
-    bool bSuccess = false;
-
-    u32 SamplesPerLine     = (f32)Wav.sampleRate * SAMPLES_FACTOR;
-    u32 Slack              = 0.05 * (f32)SamplesPerLine;
-    u32 NextLinePrediction = (*Cursor + (SamplesPerLine - Slack));
-
-    i32 PeakIndex = -1;
-    f32 PeakValue = 0;
-
-    DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, bLeftChannel, OverrideParams, &PeakIndex, &PeakValue);
-
-    f32 BestScore = SyncPeak(Samples, *Cursor, SamplesPerLine, Wav.channels, bLeftChannel) / SamplesPerLine;
-
-    bool bIsBeep = DetectBeep(Samples, *Cursor, SamplesPerLine, Wav, bLeftChannel);
-
-    /*
-    if (bIsBeep)
-    {
-        printf("Beep!\n");
-    }
-    */
-
-    f32 Diff = fabsf(BestScore - Threshold);
-    bool bWithinBand = Diff < 0.1f;
-    if (bWithinBand && !bIsBeep)
-    {
-        u32 NewOffset = NextLinePrediction + PeakIndex;
-
-        u32 NextLineSamplesActual = NewOffset - *Cursor;
-
-        f64 Black = -0.1;
-        f64 White = 0.07;
-
-        f64 ImageStart  = *Cursor;
-        f64 ImageLen    = NextLineSamplesActual;
-
-        i32 ImageHeight = OutputImage->height;
-        
-        for (i32 y = 0; StepIndex < 600 && y < OutputImage->height; y++)
-        {
-            u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageHeight) * ImageLen;
-            u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageHeight) * ImageLen;
-            if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
-
-            f64 Sum = 0;
-            for (u64 i = SampleIndex0; i < SampleIndex1; i++)
-            {
-                Sum += Samples[i * Wav.channels + (bLeftChannel ? 0 : 1)];
-            }
-            f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
-
-            i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
-            if (V < 0)
-            {
-                V = 0;
-            }
-            else if (V > 255)
-            {
-                V = 255;
-            }
-
-            V = 255 - V;
-
-            Color CurrentColor = GetImageColor(*OutputImage, StepIndex, y);
-            Color PixelColor = {0};
-            switch (ColorChannel)
-            {
-                default:
-                case Mono:
-                {
-                    PixelColor = (Color){ V, V, V, 255 };
-                }
-                break;
-
-                case Red:
-                {
-                    CurrentColor.r = V;
-                    CurrentColor.g = 0;
-                    CurrentColor.b = 0;
-                    PixelColor = CurrentColor;
-                }
-                break;
-
-                case Green:
-                {
-                    CurrentColor.g = V;
-                    PixelColor = CurrentColor;
-                }
-                break;
-
-                case Blue:
-                {
-                    CurrentColor.b = V;
-                    PixelColor = CurrentColor;
-                }
-                break;
-            }
-
-            PixelColor.a = 255;
-
-            ImageDrawPixel(OutputImage, StepIndex, y, PixelColor);
-        }
-
-        *Cursor = NewOffset;
-        bSuccess = true;
-    }
-
-    return bSuccess;
-}
-
 void SelectMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index,
                    f32* Samples, Wave Wav, Music GoldenWav)
 {
@@ -774,11 +690,12 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
     DrawRectangle(BarX, BarY, (i32)(BarWidth * HoldProgress), BarHeight, WHITE);
 }
 
-void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
-                         u32 SamplesPerLine, u32 NumSamplesToDraw, bool bLeftChannel,
+void DrawChannelWaveform(f32* Samples, f32 MusicCursor, bool bLeftChannel,
                          i32 BaseLocationX, i32 BaseLocationY, i32 ScanWidth, i32 ScanHeight)
 {
-    if (MusicCursor <= SamplesPerLine * NumSamplesToDraw)
+    u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
+
+    if (MusicCursor <= SamplesPerLine * NumScanlinesToDraw)
     {
         return;
     }
@@ -789,13 +706,13 @@ void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
     u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - Scaled(140));
     u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + Scaled(65));
 
-    u32 Window      = SamplesPerLine * NumSamplesToDraw;
+    u32 Window      = SamplesPerLine * NumScanlinesToDraw;
     u32 CursorStart = MusicCursor - Window;
     u32 CursorEnd   = MusicCursor;
 
     u32 Slack = 0.05 * SamplesPerLine;
     i32 TriggerRel = 0;
-    DetectScanTrigger(Samples, CursorStart, Slack, Wav, bLeftChannel, NULL, &TriggerRel, NULL);
+    DetectScanTrigger(Samples, CursorStart, Slack, GoldenWav, bLeftChannel, NULL, &TriggerRel, NULL);
 
     if (TriggerRel > 0)
     {
@@ -805,7 +722,7 @@ void DrawChannelWaveform(f32* Samples, Wave Wav, f32 MusicCursor,
 
     for (u32 i = CursorStart; i < CursorEnd; i++)
     {
-        f32 Value = Samples[i * Wav.channels + Channel] * 350.0f * UIScale;
+        f32 Value = Samples[i * GoldenWav.channels + Channel] * 350.0f * UIScale;
 
         f32 Alpha = ((f32)(CursorEnd - i) / Window);
 
@@ -850,6 +767,27 @@ bool UpdateLayoutScale(void)
         || SmallFontSize     != PreviousSmallFontSize
         || MenuFontSize      != PreviousMenuFontSize
         || MenuTitleFontSize != PreviousMenuTitleFontSize;
+}
+
+UILayout GetUILayout(void)
+{
+    const i32 LeftPadding = Scaled(0);
+
+    UILayout Result = {0};
+
+    Result.BaseLocationX = GetScreenWidth()/2  - LeftOffset;
+    Result.BaseLocationY = GetScreenHeight()/2 - Scaled(375);
+
+    Result.ColumnWidth   = LeftOffset - LeftPadding*2;
+    Result.LeftColumnX   = Result.BaseLocationX + LeftPadding;
+    Result.RightColumnX  = Result.BaseLocationX + LeftOffset + LeftPadding;
+
+    Result.DescriptionY  = Result.BaseLocationY - BodyFontSize  - Scaled(9);
+    Result.SourceY       = Result.DescriptionY  - BodyFontSize  - Scaled(2);
+    Result.NameY         = Result.SourceY       - TitleFontSize - Scaled(4);
+    Result.CursorY       = Result.NameY         - SmallFontSize - Scaled(4);
+
+    return Result;
 }
 
 void LoadUIFonts(UIFonts* Fonts)
@@ -970,16 +908,6 @@ void SetWindowIconFromFile(const char* FileName)
     UnloadImage(Source);
 }
 #endif
-
-void Update(void)
-{
-
-}
-
-void Draw(void)
-{
-
-}
 
 bool RecordPlayer_DecodeStep(f32* Samples, Wave Wav, RecordPlayer* Player, ImageMetaData ImageMetaData)
 {
@@ -1118,11 +1046,31 @@ void RecordPlayer_Update(f32* Samples, RecordPlayer* Player)
     }
 
     UpdateTexture(Player->ScanTexture, Player->ScanImage->data);
+
+    Player->ChannelIndex = GetChannelIndexFromSampleOffset(Player->Cursor, Player->bLeftChannel);
+    Player->MetaData     = GetImageMetaDataFromSampleOffset(Player->Cursor, Player->bLeftChannel);
+
+    f32 RevealDelta = bPaused ? 0.0f : GetFrameTime();
+    UpdateTextReveal(&Player->RevealState, Player->ChannelIndex, Player->MetaData.ColorChannel, RevealDelta);
 }
 
-void RecordPlayer_Draw(RecordPlayer* Player)
+void RecordPlayer_Draw(RecordPlayer* Player, UILayout Layout)
 {
-    // TODO
+    i32 ImageX  = Player->bLeftChannel ? Layout.BaseLocationX : Layout.BaseLocationX + LeftOffset;
+    i32 ColumnX = Player->bLeftChannel ? Layout.LeftColumnX   : Layout.RightColumnX;
+
+    DrawTextureEx(Player->ScanTexture, (Vector2){ImageX, Layout.BaseLocationY}, 0, ImageScale, WHITE);
+
+    DrawChannelMetaData(Fonts.Title, Fonts.Body, Player->MetaData, Player->RevealState,
+                        ColumnX, Layout.ColumnWidth, Layout.NameY, Layout.SourceY, Layout.DescriptionY);
+
+    // current decode cursor for the channel
+    DrawTextEx(Fonts.Small, TextFormat("%s %u", Player->bLeftChannel ? "L" : "R", Player->Cursor),
+               (Vector2){ColumnX, Layout.CursorY}, SmallFontSize, FontSpacing, GRAY);
+
+    DrawChannelWaveform(GoldenSamples, Player->Cursor,
+                        Player->bLeftChannel, ImageX, Layout.BaseLocationY,
+                        Player->ScanImage->width, Player->ScanImage->height);
 }
 
 void Init(void)
@@ -1153,6 +1101,200 @@ void Init(void)
     InitAudioDevice();
 }
 
+void UpdatePlaybackInput(void)
+{
+    if (IsKeyPressed(KEY_SPACE))
+    {
+        bPaused = !bPaused;
+
+        if (bPaused)
+        {
+            PauseMusicStream(GoldenMusic);
+        }
+        else
+        {
+            ResumeMusicStream(GoldenMusic);
+        }
+    }
+}
+
+void UpdateLayoutAndFonts(void)
+{
+    if (UpdateLayoutScale())
+    {
+        UnloadUIFonts(&Fonts);
+        LoadUIFonts(&Fonts);
+    }
+}
+
+void UpdateMenuInput(void)
+{
+    if (!bMenuOpen)
+    {
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            bMenuOpen        = true;
+            bMenuEscapeArmed = false;
+            MenuEscapeHeld   = 0.0f;
+        }
+    }
+    else if (!bMenuEscapeArmed)
+    {
+        bMenuEscapeArmed = IsKeyUp(KEY_ESCAPE);
+    }
+    else if (IsKeyDown(KEY_ESCAPE))
+    {
+        MenuEscapeHeld += GetFrameTime();
+        bQuitRequested = MenuEscapeHeld >= MenuExitHoldSeconds;
+    }
+    else if (MenuEscapeHeld > 0.0f)
+    {
+        bMenuOpen      = false;
+        MenuEscapeHeld = 0.0f;
+    }
+}
+
+void UpdateImageSelectionInput(void)
+{
+    u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
+
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
+    {
+        i32 Step   = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
+        i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
+
+        if (Target >= 0 && Target < (i32)NumMappings)
+        {
+            SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, GoldenSamples, GoldenWav, GoldenMusic);
+
+            bMenuOpen = false;
+        }
+    }
+
+    bool bIsShift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+
+    for (u32 i = 0; i < NumMappings; i++)
+    {
+        ImageMapping M = ImageMappings[i];
+
+        if (IsKeyPressed(bIsShift ? M.ShiftKey : M.Key))
+        {
+            SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, GoldenSamples, GoldenWav, GoldenMusic);
+
+            bMenuOpen = false;
+            break;
+        }
+    }
+}
+
+void UpdateShortcutInput(void)
+{
+    bool bIsControl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+
+    if (bIsControl)
+    {
+        if (IsKeyPressed(KEY_F))
+        {
+            ToggleBorderlessWindowed();
+        }
+
+        return;
+    }
+
+    UpdateImageSelectionInput();
+
+    if (IsKeyPressed(KEY_UP))
+    {
+        NumScanlinesToDraw++;
+    }
+
+    if (IsKeyPressed(KEY_DOWN))
+    {
+        NumScanlinesToDraw--;
+    }
+}
+
+void Update(void)
+{
+    UpdateMusicStream(GoldenMusic);
+
+    UpdatePlaybackInput();
+
+    MusicCursor = (f32)GetMusicTimePlayed(GoldenMusic) * (f32)GoldenWav.sampleRate;
+
+    UpdateLayoutAndFonts();
+    UpdateMenuInput();
+    UpdateShortcutInput();
+
+    RecordPlayer_Update(GoldenSamples, &Player_LeftChannel);
+    RecordPlayer_Update(GoldenSamples, &Player_RightChannel);
+}
+
+void DrawRecordProgress(void)
+{
+    const i32 BarHeight = Scaled(4);
+
+    f32 TrackLength = GetMusicTimeLength(GoldenMusic);
+    f32 Progress    = TrackLength > 0.0f ? GetMusicTimePlayed(GoldenMusic) / TrackLength : 0.0f;
+
+    if (Progress > 1.0f)
+    {
+        Progress = 1.0f;
+    }
+
+    DrawRectangle(0, 0, GetScreenWidth(), BarHeight, Fade(WHITE, 0.15f));
+    DrawRectangle(0, 0, (i32)(GetScreenWidth() * Progress), BarHeight, WHITE);
+}
+
+void DrawPlaybackTime(UILayout Layout)
+{
+    f32 PlayedTime = GetMusicTimePlayed(GoldenMusic);
+    const char* TimeText = TextFormat("%02i:%02i:%03i", (i32)PlayedTime / 60, (i32)PlayedTime % 60, (i32)(PlayedTime * 1000) % 1000);
+
+    i32 GlyphSize = Scaled(14);
+    i32 GlyphGap  = Scaled(12);
+
+    i32 GroupWidth = GlyphSize + GlyphGap + (i32)MeasureTextEx(Fonts.Body, TimeText, BodyFontSize, FontSpacing).x;
+    i32 GroupX     = GetScreenWidth() - GroupWidth;
+    i32 GroupY     = Layout.BaseLocationY - Scaled(160);
+
+    // the glyph shows the state at a glance, and blinks while paused
+    f32 GlyphAlpha = bPaused ? 0.25f + 0.35f * (0.5f + 0.5f * sinf((f32)GetTime() * 2.5f)) : 1.0f;
+    Color GlyphColor = Fade(WHITE, GlyphAlpha);
+
+    i32 GlyphY = GroupY + (BodyFontSize - GlyphSize)/2;
+    if (bPaused)
+    {
+        i32 BarWidth = GlyphSize/3;
+        DrawRectangle(GroupX, GlyphY, BarWidth, GlyphSize, GlyphColor);
+        DrawRectangle(GroupX + GlyphSize - BarWidth, GlyphY, BarWidth, GlyphSize, GlyphColor);
+    }
+
+    DrawTextEx(Fonts.Body, TimeText, (Vector2){GroupX + GlyphSize + GlyphGap, GroupY}, BodyFontSize, FontSpacing, GlyphColor);
+}
+
+void Draw(void)
+{
+    UILayout Layout = GetUILayout();
+
+    BeginDrawing();
+
+    ClearBackground(BLACK);
+
+    DrawRecordProgress();
+    DrawPlaybackTime(Layout);
+
+    RecordPlayer_Draw(&Player_LeftChannel,  Layout);
+    RecordPlayer_Draw(&Player_RightChannel, Layout);
+
+    if (bMenuOpen)
+    {
+        DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld, Player_LeftChannel.ChannelIndex);
+    }
+
+    EndDrawing();
+}
+
 i32 main(void)
 {
     Init();
@@ -1163,14 +1305,14 @@ i32 main(void)
     bool bHaveWave  = IsWaveValid(GoldenWav);
     bool bHaveMusic = IsMusicValid(GoldenMusic);
 
-    f32* Samples = bHaveWave ? LoadWaveSamples(GoldenWav) : NULL;
+    GoldenSamples = bHaveWave ? LoadWaveSamples(GoldenWav) : NULL;
 
-    if (!bHaveMusic || !bHaveWave || Samples == NULL)
+    if (!bHaveMusic || !bHaveWave || GoldenSamples == NULL)
     {
         TraceLog(LOG_ERROR, "Resources/golden.wav is missing or is not a readable wav file.");
         TraceLog(LOG_ERROR, "if this is a fresh clone, the audio is stored in git lfs: install it and run \"git lfs pull\".");
 
-        UnloadWaveSamples(Samples);
+        UnloadWaveSamples(GoldenSamples);
         UnloadWave(GoldenWav);
         UnloadMusicStream(GoldenMusic);
         CloseAudioDevice();
@@ -1192,230 +1334,15 @@ i32 main(void)
     SetTextureFilter(ScanTexture_Left, TEXTURE_FILTER_BILINEAR);
 
     UpdateLayoutScale();
-
-    UIFonts Fonts = {0};
     LoadUIFonts(&Fonts);
-    
-    u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
 
-    RecordPlayer Player_LeftChannel  = {.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .bLeftChannel = true,  .RevealState = (TextReveal){.MappingIndex = -1}};
-    RecordPlayer Player_RightChannel = {.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .bLeftChannel = false, .RevealState = (TextReveal){.MappingIndex = -1}};
+    Player_LeftChannel  = (RecordPlayer){.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .bLeftChannel = true,  .RevealState = (TextReveal){.MappingIndex = -1}};
+    Player_RightChannel = (RecordPlayer){.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .bLeftChannel = false, .RevealState = (TextReveal){.MappingIndex = -1}};
 
     while (!WindowShouldClose() && !bQuitRequested)
     {
-        UpdateMusicStream(GoldenMusic);
-
-        if (IsKeyPressed(KEY_SPACE))
-        {
-            bPaused = !bPaused;
-            if (bPaused)
-            {
-                PauseMusicStream(GoldenMusic);
-            }
-            else
-            {
-                ResumeMusicStream(GoldenMusic);
-            }
-        }
-
-        MusicCursor = (f32)GetMusicTimePlayed(GoldenMusic) * (f32)GoldenWav.sampleRate;
-
-        if (UpdateLayoutScale())
-        {
-            UnloadUIFonts(&Fonts);
-            LoadUIFonts(&Fonts);
-        }
-
-        const i32 LeftPadding = Scaled(0);
-        const i32 ColumnWidth = LeftOffset - LeftPadding*2;
-
-        i32 BaseLocationX = GetScreenWidth()/2  - LeftOffset;
-        i32 BaseLocationY = GetScreenHeight()/2 - Scaled(375);
-
-        const i32 DescriptionY = BaseLocationY  - BodyFontSize  - Scaled(9);
-        const i32 SourceY      = DescriptionY   - BodyFontSize  - Scaled(2);
-        const i32 NameY        = SourceY        - TitleFontSize - Scaled(4);
-        const i32 CursorY      = NameY          - SmallFontSize - Scaled(4);
-
-        if (!bMenuOpen)
-        {
-            if (IsKeyPressed(KEY_ESCAPE))
-            {
-                bMenuOpen        = true;
-                bMenuEscapeArmed = false;
-                MenuEscapeHeld   = 0.0f;
-            }
-        }
-        else if (!bMenuEscapeArmed)
-        {
-            bMenuEscapeArmed = IsKeyUp(KEY_ESCAPE);
-        }
-        else if (IsKeyDown(KEY_ESCAPE))
-        {
-            MenuEscapeHeld += GetFrameTime();
-            bQuitRequested = MenuEscapeHeld >= MenuExitHoldSeconds;
-        }
-        else if (MenuEscapeHeld > 0.0f)
-        {
-            bMenuOpen      = false;
-            MenuEscapeHeld = 0.0f;
-        }
-
-        bool bIsControl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-
-        if (bIsControl && IsKeyPressed(KEY_F))
-        {
-            ToggleBorderlessWindowed();
-        }
-
-        u32 NumMappings = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
-
-        if (!bIsControl)
-        {
-            if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
-            {
-                i32 Step = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
-    
-                i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
-    
-                if (Target >= 0 && Target < (i32)NumMappings)
-                {
-                    SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, Samples, GoldenWav, GoldenMusic);
-    
-                    bMenuOpen = false;
-                }
-            }
-
-            for (u32 i = 0; i < NumMappings; i++)
-            {
-                ImageMapping M = ImageMappings[i];
-                bool bIsShift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-                if (bIsShift)
-                {
-                    if (IsKeyPressed(M.ShiftKey))
-                    {
-                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, GoldenWav, GoldenMusic);
-                        bMenuOpen = false;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (IsKeyPressed(M.Key))
-                    {
-                        SelectMapping(&Player_LeftChannel, &Player_RightChannel, i, Samples, GoldenWav, GoldenMusic);
-                        bMenuOpen = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        RecordPlayer_Update(Samples, &Player_LeftChannel);
-        RecordPlayer_Update(Samples, &Player_RightChannel);
-
-        // the decode loops moved the cursors, so this is what the cursors are actually sitting on now
-        ImageMetaData LeftData  = GetImageMetaDataFromSampleOffset(Player_LeftChannel.Cursor, true);
-        ImageMetaData RightData = GetImageMetaDataFromSampleOffset(Player_RightChannel.Cursor, false);
-
-        BeginDrawing();
-
-        ClearBackground(BLACK);
-
-        // how far along the record we are, spanning the top edge of the window
-        {
-            const i32 BarHeight = Scaled(4);
-
-            f32 TrackLength = GetMusicTimeLength(GoldenMusic);
-            f32 Progress    = TrackLength > 0.0f ? GetMusicTimePlayed(GoldenMusic) / TrackLength : 0.0f;
-
-            if (Progress > 1.0f)
-            {
-                Progress = 1.0f;
-            }
-
-            DrawRectangle(0, 0, GetScreenWidth(), BarHeight, Fade(WHITE, 0.15f));
-            DrawRectangle(0, 0, (i32)(GetScreenWidth() * Progress), BarHeight, WHITE);
-        }
-
-        DrawTextureEx(ScanTexture_Left, (Vector2){BaseLocationX, BaseLocationY}, 0, ImageScale, WHITE);
-        DrawTextureEx(ScanTexture_Right, (Vector2){BaseLocationX+LeftOffset, BaseLocationY}, 0, ImageScale, WHITE);
-
-        // time played text
-        {
-            f32 PlayedTime = GetMusicTimePlayed(GoldenMusic);
-            const char* TimeText = TextFormat("%02i:%02i:%03i", (i32)PlayedTime / 60, (i32)PlayedTime % 60, (i32)(PlayedTime * 1000) % 1000);
-
-            i32 GlyphSize = Scaled(14);
-            i32 GlyphGap  = Scaled(12);
-
-            i32 GroupWidth = GlyphSize + GlyphGap + (i32)MeasureTextEx(Fonts.Body, TimeText, BodyFontSize, FontSpacing).x;
-            i32 GroupX     = GetScreenWidth() - GroupWidth;
-            i32 GroupY     = BaseLocationY - Scaled(160);
-
-            // the glyph shows the state at a glance, and blinks while paused
-            f32 GlyphAlpha = bPaused ? 0.25f + 0.35f * (0.5f + 0.5f * sinf((f32)GetTime() * 2.5f)) : 1.0f;
-            Color GlyphColor = Fade(WHITE, GlyphAlpha);
-
-            i32 GlyphY = GroupY + (BodyFontSize - GlyphSize)/2;
-            if (bPaused)
-            {
-                i32 BarWidth = GlyphSize/3;
-                DrawRectangle(GroupX, GlyphY, BarWidth, GlyphSize, GlyphColor);
-                DrawRectangle(GroupX + GlyphSize - BarWidth, GlyphY, BarWidth, GlyphSize, GlyphColor);
-            }
-
-            DrawTextEx(Fonts.Body, TimeText, (Vector2){GroupX + GlyphSize + GlyphGap, GroupY}, BodyFontSize, FontSpacing, GlyphColor);
-        }
-
-        i32 LeftColumnX  = BaseLocationX + LeftPadding;
-        i32 RightColumnX = BaseLocationX + LeftOffset + LeftPadding;
-
-        f32 RevealDelta = bPaused ? 0.0f : GetFrameTime();
-
-        u32 LeftChannelIndex = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true);
-        u32 RightChannelIndex = GetChannelIndexFromSampleOffset(Player_RightChannel.Cursor, false);
-
-        UpdateTextReveal(&Player_LeftChannel.RevealState,  LeftChannelIndex,
-                         LeftData.ColorChannel,  RevealDelta);
-
-        UpdateTextReveal(&Player_RightChannel.RevealState, RightChannelIndex,
-                         RightData.ColorChannel, RevealDelta);
-
-        DrawChannelMetaData(Fonts.Title, Fonts.Body, LeftData,  Player_LeftChannel.RevealState,
-                            LeftColumnX,  ColumnWidth, NameY, SourceY, DescriptionY);
-
-        DrawChannelMetaData(Fonts.Title, Fonts.Body, RightData, Player_RightChannel.RevealState,
-                            RightColumnX, ColumnWidth, NameY, SourceY, DescriptionY);
-
-        // current decode cursor for each channel
-        {
-            DrawTextEx(Fonts.Small, TextFormat("L %u", Player_LeftChannel.Cursor),  (Vector2){LeftColumnX,  CursorY}, SmallFontSize, FontSpacing, GRAY);
-            DrawTextEx(Fonts.Small, TextFormat("R %u", Player_RightChannel.Cursor), (Vector2){RightColumnX, CursorY}, SmallFontSize, FontSpacing, GRAY);
-        }
-
-        static u32 NumSamplesToDraw = 6;
-        if (!bIsControl && IsKeyPressed(KEY_UP))
-        {
-            NumSamplesToDraw++;
-        }
-        if (!bIsControl && IsKeyPressed(KEY_DOWN))
-        {
-            NumSamplesToDraw--;
-        }
-
-        DrawChannelWaveform(Samples, GoldenWav, Player_LeftChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
-                            true,  BaseLocationX, BaseLocationY, Scan_Left.width, Scan_Left.height);
-
-        DrawChannelWaveform(Samples, GoldenWav, Player_RightChannel.Cursor, SamplesPerLine, NumSamplesToDraw,
-                            false, BaseLocationX + LeftOffset, BaseLocationY, Scan_Left.width, Scan_Left.height);
-
-        if (bMenuOpen)
-        {
-            DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld, LeftChannelIndex);
-        }
-
-        EndDrawing();
+        Update();
+        Draw();
     }
 
     UnloadUIFonts(&Fonts);
@@ -1424,7 +1351,7 @@ i32 main(void)
     UnloadTexture(ScanTexture_Right);
     UnloadImage(Scan_Left);
     UnloadImage(Scan_Right);
-    UnloadWaveSamples(Samples);
+    UnloadWaveSamples(GoldenSamples);
     UnloadMusicStream(GoldenMusic);
 
     CloseWindow();
