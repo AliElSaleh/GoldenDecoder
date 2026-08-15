@@ -32,7 +32,13 @@ const i32 DesignMenuFontSize      = 20; // 20 is about the practical ceiling, th
 const i32 DesignMenuTitleFontSize = 30;
 
 const i32 ImageScanWidth          = 600;
-const i32 ImageScanHeight         = 430;
+const i32 ImageScanHeight         = 550;
+
+const i32 LandscapeImageScanWidth  = 600;
+const i32 LandscapeImageScanHeight = 430;
+
+const i32 PortraitImageScanWidth   = 600;
+const i32 PortraitImageScanHeight  = 430;
 
 const f32 RevealCharsPerSecond    = 15.0f;
 
@@ -153,6 +159,8 @@ typedef struct
     ScanTriggerThresholdParams* OverrideParams;
     u32 SampleOffset;
     EImageColorChannel ColorChannel;
+    bool bPortrait;
+    bool bPortraitAntiClockwise;
 } ImageMetaData;
 
 typedef struct
@@ -183,6 +191,7 @@ typedef struct
     i32 ChannelIndex;
 
     bool bLeftChannel;
+    bool bDrawWaveform;
 } RecordPlayer;
 
 UIFonts Fonts = {0};
@@ -206,7 +215,6 @@ const char* IntroAttribution = "Carl Sagan, Murmurs of Earth (1978)";
 #define SAMPLES_FACTOR (1.0f/(60.0f))
 
 // TODO: export to jpeg
-// TODO: rotate portrait images
 // TODO: add descriptions to almost all images
 // TODO: fix crash when the music is finished/reached the end. loop back to beginning instead
 
@@ -227,77 +235,77 @@ ImageMapping ImageMappings[] =
     {.Key = KEY_FIVE,        .LeftImage.Name = "Solar System Parameters 1",             .RightImage.Name = "Crocodile",                                 .LeftImage.SampleOffset = 3483550,  .RightImage.SampleOffset = 3546161,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Frank Drake", .RightImage.Source = "Peter Beard", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-system-parameters-30554017073-o/"},
     {.Key = KEY_SIX,         .LeftImage.Name = "Solar System Parameters 2",             .RightImage.Name = "Eagle",                                     .LeftImage.SampleOffset = 3998630,  .RightImage.SampleOffset = 4051738,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Frank Drake", .RightImage.Source = "Donona, Taplinger Publishing Co.", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-system-parameters-30992729550-o/"},
     {.Key = KEY_SEVEN,       .LeftImage.Name = "The Sun",                               .RightImage.Name = "Zebras",                                    .LeftImage.SampleOffset = 4500698,  .RightImage.SampleOffset = 4544028,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Description = "Hale Observations", .RightImage.Source = "South African Tourist Corp."},
-    {.Key = KEY_EIGHT,       .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 4984064,  .RightImage.SampleOffset = 5036615,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Red,   .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
-    {.Key = KEY_NINE,        .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 5467791,  .RightImage.SampleOffset = 5543004,  .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Green, .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
-    {.Key = KEY_NULL,        .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 5955425,  .RightImage.SampleOffset = 6039902,  .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
+    {.Key = KEY_EIGHT,       .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 4984064,  .RightImage.SampleOffset = 5036615,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Red,   .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.bPortrait = true, .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
+    {.Key = KEY_NINE,        .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 5467791,  .RightImage.SampleOffset = 5543004,  .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Green, .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.bPortrait = true, .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
+    {.Key = KEY_NULL,        .LeftImage.Name = "Solar Spectrum",                        .RightImage.Name = "Jane Goodall & Chimps",                     .LeftImage.SampleOffset = 5955425,  .RightImage.SampleOffset = 6039902,  .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Source = "Vanne Morris-Goodall", .RightImage.bPortrait = true, .RightImage.Location = {"Gombe Stream, Tanzania", -4.6700f, 29.6300f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/solar-spectrum-30992778240-o/"},
     {.Key = KEY_ZERO,        .LeftImage.Name = "Mercury",                               .RightImage.Name = "Sketch of Bushmen Hunters",                 .LeftImage.SampleOffset = 6582824,  .RightImage.SampleOffset = 6570356,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Jon Lomberg", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/mercury-31246953391-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/sketch-of-bushmen-30541167404-o/"},
     {.Key = KEY_Q,           .LeftImage.Name = "Mars",                                  .RightImage.Name = "Bushmen Hunters",                           .LeftImage.SampleOffset = 7091405,  .RightImage.SampleOffset = 7067636,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "R. Farbman; Time Inc.", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/mars-30992814480-o/"},
-    {.Key = KEY_W,           .LeftImage.Name = "Jupiter",                               .RightImage.Name = "Man from Guatemala",                        .LeftImage.SampleOffset = 7615711,  .RightImage.SampleOffset = 7573015,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "U.N. Photo", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.043f, .DebounceSamples = 2}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/jupiter-31325748356-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/man-from-guatemala-30541182514-o/"},
-    {.Key = KEY_E,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Dancer from Bali",                          .LeftImage.SampleOffset = 8137606,  .RightImage.SampleOffset = 8086172,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Donna Grosvenor", .RightImage.Location = {"", -8.4095f, 115.1889f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
-    {.Key = KEY_R,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Andean Girls",                              .LeftImage.SampleOffset = 8635865,  .RightImage.SampleOffset = 8592929,  .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Joseph Scherschel", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
-    {.Key = KEY_T,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Thailand Master Craftsman",                 .LeftImage.SampleOffset = 9142947,  .RightImage.SampleOffset = 9089631,  .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .RightImage.Source = "Dean Conger", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.05f, .DebounceSamples = 2}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
+    {.Key = KEY_W,           .LeftImage.Name = "Jupiter",                               .RightImage.Name = "Man from Guatemala",                        .LeftImage.SampleOffset = 7615711,  .RightImage.SampleOffset = 7573015,  .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true,.RightImage.Source = "U.N. Photo", .RightImage.bPortrait = true, .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.043f, .DebounceSamples = 2}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/jupiter-31325748356-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/man-from-guatemala-30541182514-o/"},
+    {.Key = KEY_E,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Dancer from Bali",                          .LeftImage.SampleOffset = 8137606,  .RightImage.SampleOffset = 8086172,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true,.RightImage.Source = "Donna Grosvenor", .RightImage.bPortrait = true, .RightImage.Location = {"", -8.4095f, 115.1889f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
+    {.Key = KEY_R,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Andean Girls",                              .LeftImage.SampleOffset = 8635865,  .RightImage.SampleOffset = 8592929,  .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true,.RightImage.Source = "Joseph Scherschel", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
+    {.Key = KEY_T,           .LeftImage.Name = "Earth",                                 .RightImage.Name = "Thailand Master Craftsman",                 .LeftImage.SampleOffset = 9142947,  .RightImage.SampleOffset = 9089631,  .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true,.RightImage.Source = "Dean Conger", .RightImage.bPortrait = true, .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.05f, .DebounceSamples = 2}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/earth-31326146966-o/"},
     {.Key = KEY_Y,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Elephant",                                  .LeftImage.SampleOffset = 9636814,  .RightImage.SampleOffset = 9600311,  .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Peter Kunstadter", .LeftImage.Location = {"", 29.5000f, 33.8000f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/egypt-red-sea-sinal-peninsula-and-the-nile-30993198280-o/"},
-    {.Key = KEY_U,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man Smoking",                           .LeftImage.SampleOffset = 10113065, .RightImage.SampleOffset = 10102506, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Jonathon Blair", .RightImage.Description = "Turkey", .LeftImage.Location = {"", 29.5000f, 33.8000f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/egypt-red-sea-sinal-peninsula-and-the-nile-30993198280-o/"},
-    {.Key = KEY_I,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man with Dog & Flowers",                .LeftImage.SampleOffset = 10615931, .RightImage.SampleOffset = 10613180, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.Source = "Bruce Baumann", .LeftImage.Location = {"", 29.5000f, 33.8000f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/egypt-red-sea-sinal-peninsula-and-the-nile-30993198280-o/"},
+    {.Key = KEY_U,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man Smoking",                           .LeftImage.SampleOffset = 10113065, .RightImage.SampleOffset = 10102506, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.bPortrait = true, .RightImage.Source = "Jonathon Blair", .RightImage.Description = "Turkey", .LeftImage.Location = {"", 29.5000f, 33.8000f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/egypt-red-sea-sinal-peninsula-and-the-nile-30993198280-o/"},
+    {.Key = KEY_I,           .LeftImage.Name = "Sinai Peninsula & the Nile",            .RightImage.Name = "Old Man with Dog & Flowers",                .LeftImage.SampleOffset = 10615931, .RightImage.SampleOffset = 10613180, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "NASA", .LeftImage.Description = "Low Earth Orbit; Annotated with the chemical composition of Earth's atmosphere.", .RightImage.bPortrait = true, .RightImage.Source = "Bruce Baumann", .LeftImage.Location = {"", 29.5000f, 33.8000f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/egypt-red-sea-sinal-peninsula-and-the-nile-30993198280-o/"},
     {.Key = KEY_O,           .LeftImage.Name = "Chemical Definitions",                  .RightImage.Name = "Mountain Climber",                          .LeftImage.SampleOffset = 11130449, .RightImage.SampleOffset = 11125216, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Frank Drake", .RightImage.Source = "Gaston Rebuffat", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/chemical-definitions-31218371762-o/"},
     {.Key = KEY_P,           .LeftImage.Name = "DNA Structure",                         .RightImage.Name = "Gymnast",                                   .LeftImage.SampleOffset = 11611579, .RightImage.SampleOffset = 11631241, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "Philip Leonian; Sports Illustrated", .RightImage.Description = "Cathy Rigby", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/dna-structure-31362211895-o/"},
     {.Key = KEY_A,           .LeftImage.Name = "DNA Structure (Magnified)",             .RightImage.Name = "Sprinters",                                 .LeftImage.SampleOffset = 12112408, .RightImage.SampleOffset = 12131300, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "History of the Olympics, Picturepoint, London", .RightImage.Description = "Valeriy Borzov of the U.S.S.R. in lead", .RightImage.Location = {"Olympiastadion, Munich", 48.1731f, 11.5468f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/dna-structure-magnified-light-hit-31362224015-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/sprinters-valeri-borzov-of-the-ussr-in-lead-history-of-the-olympics-31363259165-o/"},
     {.Key = KEY_S,           .LeftImage.Name = "Cell Division",                         .RightImage.Name = "Schoolroom",                                .LeftImage.SampleOffset = 12618348, .RightImage.SampleOffset = 12643425, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Turtox/Cambosco", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Japan", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/schoolroom-30994523250-o/"},
-    {.Key = KEY_D,           .LeftImage.Name = "Anatomy 1",                             .RightImage.Name = "Children with Globe",                       .LeftImage.SampleOffset = 13155793, .RightImage.SampleOffset = 13158591, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Skeleton & Muscles, Front", .RightImage.Source = "U.N. Photo", .RightImage.Description = "U.N. International School", .RightImage.Location = {"", 40.7370f, -73.9720f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/children-with-globe-30541853554-o/"},
-    {.Key = KEY_F,           .LeftImage.Name = "Anatomy 2",                             .RightImage.Name = "Cotton Harvest",                            .LeftImage.SampleOffset = 13667626, .RightImage.SampleOffset = 13664412, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Skeleton & Muscles, Back", .RightImage.Source = "Howell Walker"},
-    {.Key = KEY_G,           .LeftImage.Name = "Anatomy 3",                             .RightImage.Name = "Grape Picker",                              .LeftImage.SampleOffset = 14169422, .RightImage.SampleOffset = 14179145, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Back", .RightImage.Source = "David Moore"},
-    {.Key = KEY_H,           .LeftImage.Name = "Anatomy 4",                             .RightImage.Name = "Supermarket",                               .LeftImage.SampleOffset = 14671718, .RightImage.SampleOffset = 14694679, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Front", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Woman eating grapes", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/supermarket-30555896943-o/"},
-    {.Key = KEY_J,           .LeftImage.Name = "Anatomy 5",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15186181, .RightImage.SampleOffset = 15192711, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Back",  .RightImage.Source = "Jerry Greenberg", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.027f, .DebounceSamples = 3}},
-    {.Key = KEY_K,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15679226, .RightImage.SampleOffset = 15692985, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
-    {.Key = KEY_L,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 16190230, .RightImage.SampleOffset = 16224544, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "Jerry Greenberg"},
-    {.Key = KEY_Z,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Fishing Boat with Nets",                    .LeftImage.SampleOffset = 16705655, .RightImage.SampleOffset = 16725175, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Greece", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/fishing-boat-with-nets-30542208064-o/"},
-    {.Key = KEY_X,           .LeftImage.Name = "Anatomy 7",                             .RightImage.Name = "Cooking Fish",                              .LeftImage.SampleOffset = 17189421, .RightImage.SampleOffset = 17242071, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Ribcage", .RightImage.Source = "Cooking of Spain and Portugal, Time-Life Books"},
-    {.Key = KEY_C,           .LeftImage.Name = "Anatomy 8",                             .RightImage.Name = "Chinese Dinner Party",                      .LeftImage.SampleOffset = 17738425, .RightImage.SampleOffset = 17748573, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Muscles", .RightImage.Source = "Time-Life Books", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.055f, .DebounceSamples = 4}},
+    {.Key = KEY_D,           .LeftImage.Name = "Anatomy 1",                             .RightImage.Name = "Children with Globe",                       .LeftImage.SampleOffset = 13155793, .RightImage.SampleOffset = 13158591, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Skeleton & Muscles, Front", .LeftImage.bPortrait = true, .RightImage.Source = "U.N. Photo", .RightImage.Description = "U.N. International School", .RightImage.Location = {"", 40.7370f, -73.9720f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/children-with-globe-30541853554-o/"},
+    {.Key = KEY_F,           .LeftImage.Name = "Anatomy 2",                             .RightImage.Name = "Cotton Harvest",                            .LeftImage.SampleOffset = 13667626, .RightImage.SampleOffset = 13664412, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Skeleton & Muscles, Back",  .LeftImage.bPortrait = true, .RightImage.Source = "Howell Walker"},
+    {.Key = KEY_G,           .LeftImage.Name = "Anatomy 3",                             .RightImage.Name = "Grape Picker",                              .LeftImage.SampleOffset = 14169422, .RightImage.SampleOffset = 14179145, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Back",     .LeftImage.bPortrait = true, .RightImage.Source = "David Moore"},
+    {.Key = KEY_H,           .LeftImage.Name = "Anatomy 4",                             .RightImage.Name = "Supermarket",                               .LeftImage.SampleOffset = 14671718, .RightImage.SampleOffset = 14694679, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Lungs & Kidneys, Front",    .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Woman eating grapes", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/supermarket-30555896943-o/"},
+    {.Key = KEY_J,           .LeftImage.Name = "Anatomy 5",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15186181, .RightImage.SampleOffset = 15192711, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Back",     .LeftImage.bPortrait = true, .RightImage.Source = "Jerry Greenberg", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.027f, .DebounceSamples = 3}},
+    {.Key = KEY_K,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 15679226, .RightImage.SampleOffset = 15692985, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front",    .LeftImage.bPortrait = true, .RightImage.Source = "Jerry Greenberg"},
+    {.Key = KEY_L,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Underwater Scene with Diver & Fish",        .LeftImage.SampleOffset = 16190230, .RightImage.SampleOffset = 16224544, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front",    .LeftImage.bPortrait = true, .RightImage.Source = "Jerry Greenberg"},
+    {.Key = KEY_Z,           .LeftImage.Name = "Anatomy 6",                             .RightImage.Name = "Fishing Boat with Nets",                    .LeftImage.SampleOffset = 16705655, .RightImage.SampleOffset = 16725175, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Internal Organs, Front",    .LeftImage.bPortrait = true, .RightImage.Source = "U.N. Photo", .RightImage.Description = "Greece", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/fishing-boat-with-nets-30542208064-o/"},
+    {.Key = KEY_X,           .LeftImage.Name = "Anatomy 7",                             .RightImage.Name = "Cooking Fish",                              .LeftImage.SampleOffset = 17189421, .RightImage.SampleOffset = 17242071, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Ribcage",                   .LeftImage.bPortrait = true, .RightImage.Source = "Cooking of Spain and Portugal, Time-Life Books"},
+    {.Key = KEY_C,           .LeftImage.Name = "Anatomy 8",                             .RightImage.Name = "Chinese Dinner Party",                      .LeftImage.SampleOffset = 17738425, .RightImage.SampleOffset = 17748573, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "World Book Encyclopedia", .LeftImage.Description = "Muscles",                   .LeftImage.bPortrait = true, .RightImage.Source = "Time-Life Books", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.055f, .DebounceSamples = 4}},
     {.Key = KEY_V,           .LeftImage.Name = "Human Sex Organs",                      .RightImage.Name = "Licking, Eating and Drinking",              .LeftImage.SampleOffset = 18257464, .RightImage.SampleOffset = 18250532, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Sinauer Associates, Inc.", .LeftImage.Description = "Male & Female", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.032f, .DebounceSamples = 3}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/demonstration-of-licking-eating-and-drinking-30542224004-o/"},
     {.Key = KEY_B,           .LeftImage.Name = "Conception (Diagram)",                  .RightImage.Name = "Great Wall of China",                       .LeftImage.SampleOffset = 18765554, .RightImage.SampleOffset = 18747087, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "H. Edward Kim", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-conception-31218656712-o/"},
     {.Key = KEY_N,           .LeftImage.Name = "Conception",                            .RightImage.Name = "House Construction",                        .LeftImage.SampleOffset = 19277607, .RightImage.SampleOffset = 19244296, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Albert Bonniers; Forlag, Stockholm", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Cameroon", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/house-construction-african-30542255034-o/"},
-    {.Key = KEY_M,           .LeftImage.Name = "Fertilized Ovum",                       .RightImage.Name = "Construction Scene",                        .LeftImage.SampleOffset = 19788079, .RightImage.SampleOffset = 19745141, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Albert Bonniers; Forlag, Stockholm", .RightImage.Source = "William Albert Allard", .RightImage.Description = "Amish Country"},
+    {.Key = KEY_M,           .LeftImage.Name = "Fertilized Ovum",                       .RightImage.Name = "Construction Scene",                        .LeftImage.SampleOffset = 19788079, .RightImage.SampleOffset = 19745141, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Albert Bonniers; Forlag, Stockholm", .RightImage.Source = "William Albert Allard", .RightImage.Description = "Amish Country", .RightImage.bPortrait = true},
     {.Key = KEY_COMMA,       .LeftImage.Name = "Fetus (Diagram)",                       .RightImage.Name = "House",                                     .LeftImage.SampleOffset = 20291384, .RightImage.SampleOffset = 20251104, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Ethiopia", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.032f, .DebounceSamples = 3}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/fetus-diagram-30540929914-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/house-africa-30994933500-o/"},
-    {.Key = KEY_PERIOD,      .LeftImage.Name = "Fetus",                                 .RightImage.Name = "House",                                     .LeftImage.SampleOffset = 20837565, .RightImage.SampleOffset = 20753634, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Dr. Frank Allan", .RightImage.Source = "Robert Sisson", .RightImage.Description = "New England"},
-    {.Key = KEY_SLASH,       .LeftImage.Name = "Diagram of Male and Female",            .RightImage.Name = "Modern House",                              .LeftImage.SampleOffset = 21336797, .RightImage.SampleOffset = 21271237, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "Frank Drake", .RightImage.Description = "Cloudcroft, New Mexico", .RightImage.Location = {"", 32.9576f, -105.7414f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-male-and-female-31326553496-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/modern-house-cloudcroft-new-mexico-30556337973-o/"},
-    {.Key = KEY_GRAVE,       .LeftImage.Name = "Birth",                                 .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 21854824, .RightImage.SampleOffset = 21770903, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Wayne Miller", .RightImage.Source = "Jim Amos"},
-    {.ShiftKey = KEY_ONE,    .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 22366812, .RightImage.SampleOffset = 22271748, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "U.N. Photo", .LeftImage.Description = "Philippines", .RightImage.Source = "Jim Amos", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
-    {.ShiftKey = KEY_TWO,    .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 22880833, .RightImage.SampleOffset = 22784699, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "U.N. Photo", .LeftImage.Description = "Philippines", .RightImage.Source = "Jim Amos", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
-    {.ShiftKey = KEY_THREE,  .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "Taj Mahal",                                 .LeftImage.SampleOffset = 23397216, .RightImage.SampleOffset = 23273941, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "U.N. Photo", .LeftImage.Description = "Philippines", .RightImage.Source = "David Carroll", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .RightImage.Location = {"Agra, India", 27.1751f, 78.0421f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
-    {.ShiftKey = KEY_FOUR,   .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "English City",                              .LeftImage.SampleOffset = 23914636, .RightImage.SampleOffset = 23793232, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey", .LeftImage.Description = "Malaysia", .RightImage.Source = "C.S. Lewis, Images of His World, William B. Eerdmans Publishing Co.", .RightImage.Description = "Oxford", .RightImage.Location = {"", 51.7520f, -1.2577f}},
-    {.ShiftKey = KEY_FIVE,   .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "Boston",                                    .LeftImage.SampleOffset = 24433828, .RightImage.SampleOffset = 24280027, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey", .LeftImage.Description = "Malaysia", .RightImage.Source = "Ted Spiegel", .RightImage.Location = {"", 42.3601f, -71.0589f}},
-    {.ShiftKey = KEY_SIX,    .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "U.N. Building (Day-time)",                  .LeftImage.SampleOffset = 24953317, .RightImage.SampleOffset = 24788532, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey", .LeftImage.Description = "Malaysia", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.Location = {"", 40.7489f, -73.9680f}},
-    {.ShiftKey = KEY_SEVEN,  .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 25442468, .RightImage.SampleOffset = 25301194, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Red,   .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
-    {.ShiftKey = KEY_EIGHT,  .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 25948659, .RightImage.SampleOffset = 25815519, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Green, .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
-    {.ShiftKey = KEY_NULL,   .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 26459594, .RightImage.SampleOffset = 26333242, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
+    {.Key = KEY_PERIOD,      .LeftImage.Name = "Fetus",                                 .RightImage.Name = "House",                                     .LeftImage.SampleOffset = 20837565, .RightImage.SampleOffset = 20753634, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Dr. Frank Allan", .LeftImage.bPortrait = true, .RightImage.Source = "Robert Sisson", .RightImage.Description = "New England"},
+    {.Key = KEY_SLASH,       .LeftImage.Name = "Diagram of Male and Female",            .RightImage.Name = "Modern House",                              .LeftImage.SampleOffset = 21336797, .RightImage.SampleOffset = 21271237, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg",     .LeftImage.bPortrait = true, .RightImage.Source = "Frank Drake", .RightImage.Description = "Cloudcroft, New Mexico", .RightImage.Location = {"", 32.9576f, -105.7414f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-male-and-female-31326553496-o/", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/modern-house-cloudcroft-new-mexico-30556337973-o/"},
+    {.Key = KEY_GRAVE,       .LeftImage.Name = "Birth",                                 .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 21854824, .RightImage.SampleOffset = 21770903, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Wayne Miller",    .LeftImage.bPortrait = true, .RightImage.Source = "Jim Amos"},
+    {.ShiftKey = KEY_ONE,    .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 22366812, .RightImage.SampleOffset = 22271748, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Green, .LeftImage.Source = "U.N. Photo",      .LeftImage.bPortrait = true, .LeftImage.Description = "Philippines", .RightImage.Source = "Jim Amos", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
+    {.ShiftKey = KEY_TWO,    .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "House Interior with Artist and Fire",       .LeftImage.SampleOffset = 22880833, .RightImage.SampleOffset = 22784699, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Blue,  .LeftImage.Source = "U.N. Photo",      .LeftImage.bPortrait = true, .LeftImage.Description = "Philippines", .RightImage.Source = "Jim Amos", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
+    {.ShiftKey = KEY_THREE,  .LeftImage.Name = "Nursing Mother",                        .RightImage.Name = "Taj Mahal",                                 .LeftImage.SampleOffset = 23397216, .RightImage.SampleOffset = 23273941, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "U.N. Photo",      .LeftImage.bPortrait = true, .LeftImage.Description = "Philippines", .RightImage.Source = "David Carroll", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .RightImage.Location = {"Agra, India", 27.1751f, 78.0421f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/nursing-mother-31362634275-o/"},
+    {.ShiftKey = KEY_FOUR,   .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "English City",                              .LeftImage.SampleOffset = 23914636, .RightImage.SampleOffset = 23793232, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey",    .LeftImage.bPortrait = true, .LeftImage.Description = "Malaysia", .RightImage.Source = "C.S. Lewis, Images of His World, William B. Eerdmans Publishing Co.", .RightImage.Description = "Oxford", .RightImage.Location = {"", 51.7520f, -1.2577f}},
+    {.ShiftKey = KEY_FIVE,   .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "Boston",                                    .LeftImage.SampleOffset = 24433828, .RightImage.SampleOffset = 24280027, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey",    .LeftImage.bPortrait = true, .LeftImage.Description = "Malaysia", .RightImage.Source = "Ted Spiegel", .RightImage.Location = {"", 42.3601f, -71.0589f}},
+    {.ShiftKey = KEY_SIX,    .LeftImage.Name = "Father and Daughter",                   .RightImage.Name = "U.N. Building (Day-time)",                  .LeftImage.SampleOffset = 24953317, .RightImage.SampleOffset = 24788532, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "David Harvey",    .LeftImage.bPortrait = true, .LeftImage.Description = "Malaysia", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.bPortrait = true, .RightImage.Location = {"", 40.7489f, -73.9680f}},
+    {.ShiftKey = KEY_SEVEN,  .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 25442468, .RightImage.SampleOffset = 25301194, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Red,   .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.bPortrait = true, .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
+    {.ShiftKey = KEY_EIGHT,  .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 25948659, .RightImage.SampleOffset = 25815519, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Green, .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.bPortrait = true, .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
+    {.ShiftKey = KEY_NULL,   .LeftImage.Name = "Group of Children",                     .RightImage.Name = "U.N. Building (Night-time)",                .LeftImage.SampleOffset = 26459594, .RightImage.SampleOffset = 26333242, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Ruby Mera, UNICEF", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Manhattan, New York City", .RightImage.bPortrait = true, .RightImage.Location = {"", 40.7489f, -73.9680f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/un-building-night-30556368033-o/"},
     {.ShiftKey = KEY_NINE,   .LeftImage.Name = "Diagram of Family Ages",                .RightImage.Name = "Sydney Opera House",                        .LeftImage.SampleOffset = 26977596, .RightImage.SampleOffset = 26847380, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "Mike Long", .RightImage.Location = {"", -33.8568f, 151.2153f}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-family-ages-31326608936-o/"},
-    {.ShiftKey = KEY_ZERO,   .LeftImage.Name = "Family Portrait",                       .RightImage.Name = "Artisan with Drill",                        .LeftImage.SampleOffset = 27497919, .RightImage.SampleOffset = 27377225, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Nina Leen, Time, Inc.", .RightImage.Source = "Frank Hewlett"},
-    {.ShiftKey = KEY_Q,      .LeftImage.Name = "Diagram of Continental Drift",          .RightImage.Name = "Factory Interior",                          .LeftImage.SampleOffset = 27990289, .RightImage.SampleOffset = 27885032, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Jon Lomberg", .LeftImage.Description = "Derived from LAGEOS plaque", .RightImage.Source = "Fred Ward", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-continental-drift-31247808951-o/"},
+    {.ShiftKey = KEY_ZERO,   .LeftImage.Name = "Family Portrait",                       .RightImage.Name = "Artisan with Drill",                        .LeftImage.SampleOffset = 27497919, .RightImage.SampleOffset = 27377225, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Nina Leen, Time, Inc.", .RightImage.Source = "Frank Hewlett", .RightImage.bPortrait = true},
+    {.ShiftKey = KEY_Q,      .LeftImage.Name = "Diagram of Continental Drift",          .RightImage.Name = "Factory Interior",                          .LeftImage.SampleOffset = 27990289, .RightImage.SampleOffset = 27885032, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Jon Lomberg", .LeftImage.bPortrait = true, .LeftImage.Description = "Derived from LAGEOS plaque", .RightImage.Source = "Fred Ward", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-continental-drift-31247808951-o/"},
     {.ShiftKey = KEY_W,      .LeftImage.Name = "Structure of the Earth",                .RightImage.Name = "Factory Interior",                          .LeftImage.SampleOffset = 28491246, .RightImage.SampleOffset = 28404984, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "Fred Ward", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.047f, .DebounceSamples = 3}, .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/structure-of-earth-31247834881-o/"},
     {.ShiftKey = KEY_E,      .LeftImage.Name = "Heron Island",                          .RightImage.Name = "Factory Interior",                          .LeftImage.SampleOffset = 28984353, .RightImage.SampleOffset = 28930111, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "", .LeftImage.Description = "Great Barrier Reef of Australia", .RightImage.Source = "Fred Ward", .LeftImage.Location = {"", -23.4423f, 151.9148f}, .LeftImage.SourceURL = "https://science.nasa.gov/wp-content/uploads/2024/03/heron-island-great-barrier-reef-of-australia-31247924681-o.jpg"},
-    {.ShiftKey = KEY_R,      .LeftImage.Name = "Seashore",                              .RightImage.Name = "Museum",                                    .LeftImage.SampleOffset = 29484247, .RightImage.SampleOffset = 29431324, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Dick Smith; Cape Neddick, Maine", .RightImage.Source = "David Cupp", .LeftImage.Location = {"", 43.1653f, -70.5912f}},
+    {.ShiftKey = KEY_R,      .LeftImage.Name = "Seashore",                              .RightImage.Name = "Museum",                                    .LeftImage.SampleOffset = 29484247, .RightImage.SampleOffset = 29431324, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Dick Smith; Cape Neddick, Maine", .RightImage.Source = "David Cupp", .LeftImage.Location = {"", 43.1653f, -70.5912f}, .RightImage.bPortrait = true},
     {.ShiftKey = KEY_T,      .LeftImage.Name = "Snake River and Grand Tetons",          .RightImage.Name = "X-Ray of Hand",                             .LeftImage.SampleOffset = 29992082, .RightImage.SampleOffset = 29911490, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Ansel Adams", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.025f, .DebounceSamples = 3}, .LeftImage.Location = {"", 43.6644f, -110.7183f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/x-ray-of-hand-31220229722-o/"},
     {.ShiftKey = KEY_Y,      .LeftImage.Name = "Sand dunes",                            .RightImage.Name = "Woman with Microscope",                     .LeftImage.SampleOffset = 30490384, .RightImage.SampleOffset = 30419938, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "George Mobley", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Somalia", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.025f, .DebounceSamples = 3}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/woman-with-microscope-31071614760-o/"},
     {.ShiftKey = KEY_U,      .LeftImage.Name = "Monument Valley",                       .RightImage.Name = "Street Scene",                              .LeftImage.SampleOffset = 30991505, .RightImage.SampleOffset = 30930390, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Shostal Associates, Inc.", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Pakistan", .LeftImage.Location = {"", 36.9980f, -110.0985f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/street-scene-31071643420-o/"},
-    {.ShiftKey = KEY_I,      .LeftImage.Name = "Monument Valley",                       .RightImage.Name = "Rush Hour Traffic",                         .LeftImage.SampleOffset = 31501703, .RightImage.SampleOffset = 31439778, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Shostal Associates, Inc.", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Thailand", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .LeftImage.Location = {"", 36.9980f, -110.0985f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/voyager-rush-hour/"},
+    {.ShiftKey = KEY_I,      .LeftImage.Name = "Monument Valley",                       .RightImage.Name = "Rush Hour Traffic",                         .LeftImage.SampleOffset = 31501703, .RightImage.SampleOffset = 31439778, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Shostal Associates, Inc.", .RightImage.Source = "U.N. Photo", .RightImage.Description = "Thailand", .RightImage.bPortrait = true, .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .LeftImage.Location = {"", 36.9980f, -110.0985f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/voyager-rush-hour/"},
     {.ShiftKey = KEY_O,      .LeftImage.Name = "Monument Valley",                       .RightImage.Name = "Modern Highway",                            .LeftImage.SampleOffset = 31986826, .RightImage.SampleOffset = 31939644, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Shostal Associates, Inc.", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Ithaca, New York", .LeftImage.Location = {"", 36.9980f, -110.0985f}, .RightImage.Location = {"", 42.4440f, -76.5019f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/modern-highway-30634010913-o/"},
-    {.ShiftKey = KEY_P,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Golden Gate Bridge",                        .LeftImage.SampleOffset = 32486942, .RightImage.SampleOffset = 32440627, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .RightImage.Source = "Ansel Adams", .RightImage.Location = {"San Francisco, California", 37.8199f, -122.4783f}},
-    {.ShiftKey = KEY_A,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Train",                                     .LeftImage.SampleOffset = 32978679, .RightImage.SampleOffset = 32945392, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .RightImage.Source = "Gordon Gahan", .RightImage.Description = "United Aircraft Corporation Turbotrain"},
-    {.ShiftKey = KEY_S,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Airplane in Flight",                        .LeftImage.SampleOffset = 33489509, .RightImage.SampleOffset = 33469402, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .RightImage.Source = "Frank Drake", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.031f, .DebounceSamples = 3}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/airplane-in-flight-30634172743-o/"},
+    {.ShiftKey = KEY_P,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Golden Gate Bridge",                        .LeftImage.SampleOffset = 32486942, .RightImage.SampleOffset = 32440627, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Ansel Adams", .RightImage.Location = {"San Francisco, California", 37.8199f, -122.4783f}},
+    {.ShiftKey = KEY_A,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Train",                                     .LeftImage.SampleOffset = 32978679, .RightImage.SampleOffset = 32945392, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Gordon Gahan", .RightImage.Description = "United Aircraft Corporation Turbotrain"},
+    {.ShiftKey = KEY_S,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Airplane in Flight",                        .LeftImage.SampleOffset = 33489509, .RightImage.SampleOffset = 33469402, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Frank Drake", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.031f, .DebounceSamples = 3}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/airplane-in-flight-30634172743-o/"},
     {.ShiftKey = KEY_D,      .LeftImage.Name = "Leaf (Fragaria)",                       .RightImage.Name = "Airport",                                   .LeftImage.SampleOffset = 34005577, .RightImage.SampleOffset = 33984056, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Arthur Herrick", .RightImage.Source = "George Hunter", .RightImage.Description = "Toronto", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.03f, .DebounceSamples = 3}, .RightImage.Location = {"", 43.6777f, -79.6248f}},
-    {.ShiftKey = KEY_F,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Antarctic Expedition",                      .LeftImage.SampleOffset = 34523161, .RightImage.SampleOffset = 34490520, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .RightImage.Source = "National Geographic; Great Adventures with the National Geographic", .RightImage.Description = "Commonwealth Trans-Antarctic Expedition", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}},
-    {.ShiftKey = KEY_G,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35015433, .RightImage.SampleOffset = 34999599, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .RightImage.Source = "James Blair", .RightImage.Description = "Westerbork, Netherlands", .RightImage.Location = {"", 52.9145f, 6.6031f}},
-    {.ShiftKey = KEY_H,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35537491, .RightImage.SampleOffset = 35520804, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Arecibo", .RightImage.Location = {"", 18.3442f, -66.7528f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/radio-telescope-arecibo-31442688195-o/"},
-    {.ShiftKey = KEY_J,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Page of Book",                              .LeftImage.SampleOffset = 36022479, .RightImage.SampleOffset = 36038801, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "The System of the World. Page 6 of Issac Newton's Principia Mathematica (Volume III)", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/page-of-book-newton-system-of-the-world-31297500982-o/"},
-    {.ShiftKey = KEY_K,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 36547852, .RightImage.SampleOffset = 36582381, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Red,   .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
-    {.ShiftKey = KEY_L,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 37076695, .RightImage.SampleOffset = 37093950, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
-    {.ShiftKey = KEY_Z,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 37669499, .RightImage.SampleOffset = 37654503, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 39.8043f, -75.5988f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
-    {.ShiftKey = KEY_X,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Titan Centaur Launch",                      .LeftImage.SampleOffset = 38155490, .RightImage.SampleOffset = 38150712, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .RightImage.Source = "NASA", .LeftImage.Location = {"", 39.8043f, -75.5988f}, .RightImage.Location = {"Launch Complex 41, Cape Canaveral", 28.5837f, -80.5831f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/titan-centaur-launch-31297529782-o/"},
-    {.ShiftKey = KEY_C,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 38667959, .RightImage.SampleOffset = 38655546, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .RightImage.Source = "David Harvey", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .LeftImage.Location = {"", 39.8043f, -75.5988f}},
-    {.ShiftKey = KEY_V,      .LeftImage.Name = "Flying Insect with Flowers",            .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39157401, .RightImage.SampleOffset = 39177643, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Borne on the Wind, Stephen Dalton", .LeftImage.Description = "Ichneumonidae", .RightImage.Source = "David Harvey"},
-    {.ShiftKey = KEY_B,      .LeftImage.Name = "Diagram of Vertebrate Evolution",       .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39651843, .RightImage.SampleOffset = 39671543, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Jon Lomberg", .RightImage.Source = "David Harvey", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-vertebrate-evolution-30993842550-o/"},
-    {.ShiftKey = KEY_N,      .LeftImage.Name = "Seashell",                              .RightImage.Name = "String Quartet",                            .LeftImage.SampleOffset = 40149135, .RightImage.SampleOffset = 40171212, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Harry N. Abrams, Inc.", .LeftImage.Description = "Xancidae", .RightImage.Source = "Phillips Recordings", .RightImage.Description = "Quartetto Italiano"},
-    {.ShiftKey = KEY_M,      .LeftImage.Name = "Dolphins",                              .RightImage.Name = "Violin with Music Score",                   .LeftImage.SampleOffset = 40702862, .RightImage.SampleOffset = 40670528, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Thomas Nebbia", .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Cavatina", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/violin-with-music-score-cavatina-31072637180-o/"},
+    {.ShiftKey = KEY_F,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Antarctic Expedition",                      .LeftImage.SampleOffset = 34523161, .RightImage.SampleOffset = 34490520, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "National Geographic; Great Adventures with the National Geographic", .RightImage.Description = "Commonwealth Trans-Antarctic Expedition", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}},
+    {.ShiftKey = KEY_G,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35015433, .RightImage.SampleOffset = 34999599, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "James Blair", .RightImage.Description = "Westerbork, Netherlands", .RightImage.Location = {"", 52.9145f, 6.6031f}},
+    {.ShiftKey = KEY_H,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35537491, .RightImage.SampleOffset = 35520804, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Arecibo", .RightImage.Location = {"", 18.3442f, -66.7528f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/radio-telescope-arecibo-31442688195-o/"},
+    {.ShiftKey = KEY_J,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Page of Book",                              .LeftImage.SampleOffset = 36022479, .RightImage.SampleOffset = 36038801, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "The System of the World. Page 6 of Issac Newton's Principia Mathematica (Volume III)", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/page-of-book-newton-system-of-the-world-31297500982-o/"},
+    {.ShiftKey = KEY_K,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 36547852, .RightImage.SampleOffset = 36582381, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Red,   .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .LeftImage.bPortrait = true, .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
+    {.ShiftKey = KEY_L,      .LeftImage.Name = "Snowflakes over Sequoia",               .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 37076695, .RightImage.SampleOffset = 37093950, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Josef Muench, Robert F. Sisson",        .LeftImage.bPortrait = true, .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 36.4864f, -118.5658f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
+    {.ShiftKey = KEY_Z,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Astronaut in Space",                        .LeftImage.SampleOffset = 37669499, .RightImage.SampleOffset = 37654503, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .LeftImage.bPortrait = true, .RightImage.Source = "NASA", .RightImage.Description = "Ed White", .LeftImage.Location = {"", 39.8043f, -75.5988f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/astronaut-in-space-30620956564-o/"},
+    {.ShiftKey = KEY_X,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Titan Centaur Launch",                      .LeftImage.SampleOffset = 38155490, .RightImage.SampleOffset = 38150712, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .LeftImage.bPortrait = true, .RightImage.Source = "NASA", .LeftImage.Location = {"", 39.8043f, -75.5988f}, .RightImage.bPortrait = true, .RightImage.Location = {"Launch Complex 41, Cape Canaveral", 28.5837f, -80.5831f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/titan-centaur-launch-31297529782-o/"},
+    {.ShiftKey = KEY_C,      .LeftImage.Name = "Tree with Daffodils",                   .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 38667959, .RightImage.SampleOffset = 38655546, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Red,   .LeftImage.Source = "Gardens Winterthur, Winterthur Museum", .LeftImage.bPortrait = true, .RightImage.Source = "David Harvey", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}, .LeftImage.Location = {"", 39.8043f, -75.5988f}},
+    {.ShiftKey = KEY_V,      .LeftImage.Name = "Flying Insect with Flowers",            .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39157401, .RightImage.SampleOffset = 39177643, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Borne on the Wind, Stephen Dalton",     .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true, .LeftImage.Description = "Ichneumonidae", .RightImage.Source = "David Harvey"},
+    {.ShiftKey = KEY_B,      .LeftImage.Name = "Diagram of Vertebrate Evolution",       .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39651843, .RightImage.SampleOffset = 39671543, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Jon Lomberg",                           .LeftImage.bPortrait = true, .RightImage.Source = "David Harvey", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-vertebrate-evolution-30993842550-o/"},
+    {.ShiftKey = KEY_N,      .LeftImage.Name = "Seashell",                              .RightImage.Name = "String Quartet",                            .LeftImage.SampleOffset = 40149135, .RightImage.SampleOffset = 40171212, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Harry N. Abrams, Inc.",                 .LeftImage.bPortrait = true, .LeftImage.Description = "Xancidae", .RightImage.Source = "Phillips Recordings", .RightImage.Description = "Quartetto Italiano"},
+    {.ShiftKey = KEY_M,      .LeftImage.Name = "Dolphins",                              .RightImage.Name = "Violin with Music Score",                   .LeftImage.SampleOffset = 40702862, .RightImage.SampleOffset = 40670528, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Thomas Nebbia",                         .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Cavatina", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/violin-with-music-score-cavatina-31072637180-o/"},
 };
 
 i32 GetChannelIndexFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
@@ -514,6 +522,150 @@ bool DetectBeep(f32* Samples, u32 SampleOffset, u32 SearchLength, Wave Wav, bool
     return bResult;
 }
 
+bool RecordPlayer_DecodeStep(f32* Samples, Wave Wav, RecordPlayer* Player, ImageMetaData ImageMetaData)
+{
+    bool bSuccess = false;
+
+    u32 SamplesPerLine     = (f32)Wav.sampleRate * SAMPLES_FACTOR;
+    u32 Slack              = 0.05 * (f32)SamplesPerLine;
+    u32 NextLinePrediction = (Player->Cursor + (SamplesPerLine - Slack));
+
+    i32 PeakIndex = -1;
+    f32 PeakValue = 0;
+
+    DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, Player->bLeftChannel, ImageMetaData.OverrideParams, &PeakIndex, &PeakValue);
+
+    f32 BestScore = SyncPeak(Samples, Player->Cursor, SamplesPerLine, Wav.channels, Player->bLeftChannel) / SamplesPerLine;
+
+    bool bIsBeep = DetectBeep(Samples, Player->Cursor, SamplesPerLine, Wav, Player->bLeftChannel);
+
+    /*
+    if (bIsBeep)
+    {
+        printf("Beep!\n");
+    }
+    */
+
+    f32 Diff = fabsf(BestScore - Player->Threshold);
+    bool bWithinBand = Diff < 0.1f;
+    if (bWithinBand && !bIsBeep)
+    {
+        u32 NewOffset = NextLinePrediction + PeakIndex;
+
+        u32 NextLineSamplesActual = NewOffset - Player->Cursor;
+
+        f64 Black = -0.1;
+        f64 White = 0.07;
+
+        f64 ImageStart  = Player->Cursor;
+        f64 ImageLen    = NextLineSamplesActual;
+
+        i32 WidthToUse  = ImageMetaData.bPortrait ? PortraitImageScanWidth : LandscapeImageScanWidth;
+        i32 HeightToUse = ImageMetaData.bPortrait ? PortraitImageScanHeight : LandscapeImageScanHeight;
+
+        i32 ImageWidth  = WidthToUse;
+        i32 ImageHeight = HeightToUse;
+
+        i32 XOffset = ImageMetaData.bPortrait ? ImageHeight/8 : 0;
+
+        for (i32 y = 0; Player->ScanLine < WidthToUse && y < ImageHeight; y++)
+        {
+            u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageHeight) * ImageLen;
+            u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageHeight) * ImageLen;
+            if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
+
+            f64 Sum = 0;
+            for (u64 i = SampleIndex0; i < SampleIndex1; i++)
+            {
+                Sum += Samples[i * Wav.channels + (Player->bLeftChannel ? 0 : 1)];
+            }
+            f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
+
+            i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
+            if (V < 0)
+            {
+                V = 0;
+            }
+            else if (V > 255)
+            {
+                V = 255;
+            }
+
+            V = 255 - V;
+
+
+            i32 X = Player->ScanLine;
+            i32 Y = y;
+            if (ImageMetaData.bPortrait)
+            {
+                X = XOffset + (ImageMetaData.bPortraitAntiClockwise ? y : (ImageHeight-y));
+                Y = ImageMetaData.bPortraitAntiClockwise ? Player->ScanImage->height-Player->ScanLine : Player->ScanLine;
+
+                for (i32 i = 0; i < XOffset; i++)
+                {
+                    ImageDrawPixel(Player->ScanImage, i, Y, BLACK);
+                }
+    
+                for (i32 i = 0; i < XOffset; i++)
+                {
+                    ImageDrawPixel(Player->ScanImage, XOffset+ImageHeight+i, Y, BLACK);
+                }
+            }
+            else
+            {
+                for (i32 i = 0; i < Player->ScanImage->height-LandscapeImageScanHeight; i++)
+                {
+                    ImageDrawPixel(Player->ScanImage, Player->ScanLine, LandscapeImageScanHeight+i, BLACK);
+                }
+            }
+        
+            Color CurrentColor = GetImageColor(*Player->ScanImage, X, Y);
+            Color PixelColor = {0};
+            switch (ImageMetaData.ColorChannel)
+            {
+                default:
+                case Mono:
+                {
+                    PixelColor = (Color){ V, V, V, 255 };
+                }
+                break;
+
+                case Red:
+                {
+                    CurrentColor.r = V;
+                    CurrentColor.g = 0;
+                    CurrentColor.b = 0;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Green:
+                {
+                    CurrentColor.g = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+
+                case Blue:
+                {
+                    CurrentColor.b = V;
+                    PixelColor = CurrentColor;
+                }
+                break;
+            }
+
+            PixelColor.a = 255;
+
+            ImageDrawPixel(Player->ScanImage, X, Y, PixelColor);
+        }
+
+        Player->Cursor = NewOffset;
+        bSuccess = true;
+    }
+
+    return bSuccess;
+}
+
 void SelectMapping(RecordPlayer* Left, RecordPlayer* Right, u32 Index,
                    f32* Samples, Wave Wav, Music GoldenWav)
 {
@@ -714,7 +866,7 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
     i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
-    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    C-R REPLAY INTRO    LEFT/RIGHT STEP IMAGES";
+    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    C-R REPLAY INTRO    C-LEFT/C-RIGHT WAVEFORMS    LEFT/RIGHT STEP IMAGES";
     DrawTextEx(RowFont, FooterText,
                (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
                MenuFontSize, FontSpacing, GRAY);
@@ -744,7 +896,7 @@ void DrawChannelWaveform(f32* Samples, f32 MusicCursor, bool bLeftChannel,
     u32 Channel = bLeftChannel ? 0 : 1;
 
     u32 Draw_StartPointX = BaseLocationX;
-    u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - Scaled(140));
+    u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - Scaled(30));
     u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + Scaled(65));
 
     u32 Window      = SamplesPerLine * NumScanlinesToDraw;
@@ -950,119 +1102,6 @@ void SetWindowIconFromFile(const char* FileName)
 }
 #endif
 
-bool RecordPlayer_DecodeStep(f32* Samples, Wave Wav, RecordPlayer* Player, ImageMetaData ImageMetaData)
-{
-    bool bSuccess = false;
-
-    u32 SamplesPerLine     = (f32)Wav.sampleRate * SAMPLES_FACTOR;
-    u32 Slack              = 0.05 * (f32)SamplesPerLine;
-    u32 NextLinePrediction = (Player->Cursor + (SamplesPerLine - Slack));
-
-    i32 PeakIndex = -1;
-    f32 PeakValue = 0;
-
-    DetectScanTrigger(Samples, NextLinePrediction, Slack*2, Wav, Player->bLeftChannel, ImageMetaData.OverrideParams, &PeakIndex, &PeakValue);
-
-    f32 BestScore = SyncPeak(Samples, Player->Cursor, SamplesPerLine, Wav.channels, Player->bLeftChannel) / SamplesPerLine;
-
-    bool bIsBeep = DetectBeep(Samples, Player->Cursor, SamplesPerLine, Wav, Player->bLeftChannel);
-
-    /*
-    if (bIsBeep)
-    {
-        printf("Beep!\n");
-    }
-    */
-
-    f32 Diff = fabsf(BestScore - Player->Threshold);
-    bool bWithinBand = Diff < 0.1f;
-    if (bWithinBand && !bIsBeep)
-    {
-        u32 NewOffset = NextLinePrediction + PeakIndex;
-
-        u32 NextLineSamplesActual = NewOffset - Player->Cursor;
-
-        f64 Black = -0.1;
-        f64 White = 0.07;
-
-        f64 ImageStart  = Player->Cursor;
-        f64 ImageLen    = NextLineSamplesActual;
-
-        i32 ImageWidth  = Player->ScanImage->width;
-        i32 ImageHeight = Player->ScanImage->height;
-        
-        for (i32 y = 0; Player->ScanLine < ImageWidth && y < ImageHeight; y++)
-        {
-            u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageHeight) * ImageLen;
-            u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageHeight) * ImageLen;
-            if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
-
-            f64 Sum = 0;
-            for (u64 i = SampleIndex0; i < SampleIndex1; i++)
-            {
-                Sum += Samples[i * Wav.channels + (Player->bLeftChannel ? 0 : 1)];
-            }
-            f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
-
-            i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
-            if (V < 0)
-            {
-                V = 0;
-            }
-            else if (V > 255)
-            {
-                V = 255;
-            }
-
-            V = 255 - V;
-
-            Color CurrentColor = GetImageColor(*Player->ScanImage, Player->ScanLine, y);
-            Color PixelColor = {0};
-            switch (ImageMetaData.ColorChannel)
-            {
-                default:
-                case Mono:
-                {
-                    PixelColor = (Color){ V, V, V, 255 };
-                }
-                break;
-
-                case Red:
-                {
-                    CurrentColor.r = V;
-                    CurrentColor.g = 0;
-                    CurrentColor.b = 0;
-                    PixelColor = CurrentColor;
-                }
-                break;
-
-                case Green:
-                {
-                    CurrentColor.g = V;
-                    PixelColor = CurrentColor;
-                }
-                break;
-
-                case Blue:
-                {
-                    CurrentColor.b = V;
-                    PixelColor = CurrentColor;
-                }
-                break;
-            }
-
-            PixelColor.a = 255;
-
-            ImageDrawPixel(Player->ScanImage, Player->ScanLine, y, PixelColor);
-        }
-
-        Player->Cursor = NewOffset;
-        bSuccess = true;
-    }
-
-    return bSuccess;
-}
-
 void RecordPlayer_Update(f32* Samples, RecordPlayer* Player)
 {
     u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
@@ -1099,7 +1138,7 @@ Rectangle GetChannelImageBounds(RecordPlayer* Player, UILayout Layout)
 {
     i32 ImageX = Player->bLeftChannel ? Layout.BaseLocationX : Layout.BaseLocationX + LeftOffset;
 
-    f32 Width = Player->ScanImage->width * ImageScale;
+    f32 Width = LandscapeImageScanWidth * ImageScale;
 
     if (Player->bLeftChannel && Width > (f32)LeftOffset)
     {
@@ -1109,7 +1148,7 @@ Rectangle GetChannelImageBounds(RecordPlayer* Player, UILayout Layout)
     return (Rectangle){(f32)ImageX,
                        (f32)Layout.BaseLocationY,
                        Width,
-                       Player->ScanImage->height * ImageScale};
+                       LandscapeImageScanHeight * ImageScale};
 }
 
 void RecordPlayer_Draw(RecordPlayer* Player, UILayout Layout)
@@ -1127,9 +1166,12 @@ void RecordPlayer_Draw(RecordPlayer* Player, UILayout Layout)
     DrawTextEx(Fonts.Small, TextFormat("%s %u", Player->bLeftChannel ? "L" : "R", Player->Cursor),
                (Vector2){ColumnX, Layout.CursorY}, SmallFontSize, FontSpacing, GRAY);
 
-    DrawChannelWaveform(GoldenSamples, Player->Cursor,
-                        Player->bLeftChannel, ImageX, Layout.BaseLocationY,
-                        Player->ScanImage->width, Player->ScanImage->height);
+    if (Player->bDrawWaveform)
+    {
+        DrawChannelWaveform(GoldenSamples, Player->Cursor,
+                            Player->bLeftChannel, ImageX, Layout.BaseLocationY,
+                            LandscapeImageScanWidth, LandscapeImageScanHeight);
+    }
 }
 
 void Init(void)
@@ -1204,6 +1246,16 @@ bool UpdateControlChordInput(void)
     if (IsKeyPressed(KEY_R))
     {
         RestartIntro();
+    }
+
+    if (IsKeyPressed(KEY_LEFT))
+    {
+        Player_LeftChannel.bDrawWaveform = !Player_LeftChannel.bDrawWaveform;
+    }
+
+    if (IsKeyPressed(KEY_RIGHT))
+    {
+        Player_RightChannel.bDrawWaveform = !Player_RightChannel.bDrawWaveform;
     }
 
     return true;
@@ -1390,13 +1442,16 @@ void UpdateImageSelectionInput(void)
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))
     {
         i32 Step   = IsKeyPressed(KEY_RIGHT) ? 1 : -1;
-        i32 Target = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true) + Step;
+        i32 Found = GetChannelIndexFromSampleOffset(Player_LeftChannel.Cursor, true);
+        i32 Target = -1;
+        if (Found >= 0)
+        {
+            Target = Found + Step;
+        }
 
         if (Target >= 0 && Target < (i32)NumMappings)
         {
             SelectMapping(&Player_LeftChannel, &Player_RightChannel, Target, GoldenSamples, GoldenWav, GoldenMusic);
-
-            bMenuOpen = false;
         }
     }
 
@@ -1616,8 +1671,8 @@ i32 main(void)
     UpdateLayoutScale();
     LoadUIFonts(&Fonts);
 
-    Player_LeftChannel  = (RecordPlayer){.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .bLeftChannel = true,  .RevealState = (TextReveal){.MappingIndex = -1}};
-    Player_RightChannel = (RecordPlayer){.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .bLeftChannel = false, .RevealState = (TextReveal){.MappingIndex = -1}};
+    Player_LeftChannel  = (RecordPlayer){.ScanImage = &Scan_Left,  .ScanTexture = ScanTexture_Left,  .bLeftChannel = true,  .bDrawWaveform = true, .RevealState = (TextReveal){.MappingIndex = -1}};
+    Player_RightChannel = (RecordPlayer){.ScanImage = &Scan_Right, .ScanTexture = ScanTexture_Right, .bLeftChannel = false, .bDrawWaveform = true, .RevealState = (TextReveal){.MappingIndex = -1}};
 
     while (!WindowShouldClose() && !bQuitRequested)
     {

@@ -5,7 +5,7 @@ Compiler:apple   clang
 Assembly(preserve_case) GoldenDecoder
 TitleName               Golden Decoder
 Description             Decodes the audio images on the Golden Record
-Version                 0.9
+Version                 1.0
 CompanyName             Ali El Saleh
 Copyright               Copyright (c) $CompanyName
 
@@ -23,8 +23,8 @@ if mode == release
     
     if windows
     {
-        Linker.Subsystem       Windows
-        Linker.EntryPoint:msvc mainCRTStartup
+        Linker.Subsystem  Windows
+        Linker.EntryPoint mainCRTStartup
     }
 }
 
@@ -51,7 +51,7 @@ Libraries:windows     user32 shell32 gdi32 winmm
 Libraries:linux       m X11
 Apple.Frameworks      Foundation AppKit IOKit
 
-PostBuild.Copy Resources/* $(BuildDirectory)/Resources
+PostBuild.Copy(if_not_exist) Resources/* $(BuildDirectory)/Resources
 
 if macos
 {
