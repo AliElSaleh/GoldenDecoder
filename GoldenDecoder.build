@@ -3,11 +3,15 @@ Compiler:linux   gcc
 Compiler:apple   clang
 
 Assembly(preserve_case) GoldenDecoder
-Version 0.9
-.Run
+TitleName               Golden Decoder
+Description             Decodes the audio images on the Golden Record
+Version                 0.9
+CompanyName             Ali El Saleh
+Copyright               Copyright (c) $CompanyName
 
 IconFile Voyager_Golden_Record
-Icon:!windows $(IconFile)
+Icon                   $(IconFile)
+Icon.GLFW_ICON:windows $(IconFile)
 
 BuildDirectory        Build/%Mode
 IntermediateDirectory Intermediate/%Mode
@@ -29,29 +33,23 @@ if mode == debug
     SharedCompilerFlags:msvc    /Od
     SharedLinkerFlags:gcc|clang -g3
 
-    Compiler.Defines    _DEBUG
+    Compiler.Defines _DEBUG
 }
 
 SharedCompilerFlags:msvc /MD
 
-SourceFiles         Source/Program #Source/Decoder
-SourceFiles:windows Source/GoldenDecoder_WindowIcon
+SourceFiles           Source/Program
 
-Compiler.Flags          $SharedCompilerFlags
-Linker.Flags            $SharedLinkerFlags
-Compiler.Flags:macos    -mmacosx-version-min=11.0
-Linker.Flags:macos      -mmacosx-version-min=11.0
-Compiler.Includes       . Libraries
-Library.Paths           Libraries
-Libraries               Raylib-&Platform-&cpu.arch
-Libraries:windows       &NativeLibs
-Libraries:linux         m X11
-Apple.Frameworks        Foundation AppKit IOKit
-
-if windows
-{
-    Libraries           gdi32 winmm
-}
+Compiler.Flags        $SharedCompilerFlags
+Linker.Flags          $SharedLinkerFlags
+Compiler.Flags:macos  -mmacosx-version-min=11.0
+Linker.Flags:macos    -mmacosx-version-min=11.0
+Compiler.Includes     .
+Library.Paths         Libraries
+Libraries             Raylib-&Platform-&cpu.arch
+Libraries:windows     user32 shell32 gdi32 winmm
+Libraries:linux       m X11
+Apple.Frameworks      Foundation AppKit IOKit
 
 PostBuild.Copy Resources/* $(BuildDirectory)/Resources
 
@@ -82,3 +80,5 @@ File.Resources/golden.wav.ErrorMessage
 }
 
 option.mode(Debug Release)
+
+.Run
