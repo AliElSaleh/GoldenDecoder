@@ -54,6 +54,9 @@ const i32 DesignQuoteHintMargin     = 90;
 
 const f32 FontSpacing             = 0.0f;
 
+const char* ExportDirectory       = "Export";
+const i32   DesignExportMessageMargin = 40;
+
 f32 UIScale = 0.0f;
 f32 MusicCursor = 0.0f;
 
@@ -73,7 +76,6 @@ bool bMenuOpen        = false;
 bool bMenuEscapeArmed = false;
 bool bQuitRequested   = false;
 
-// the record does not start turning until the opening quote is done or skipped
 bool bIntroActive     = true;
 f32  IntroElapsed     = 0.0f;
 
@@ -83,6 +85,9 @@ u32 NumScanlinesToDraw = 6;
 Music GoldenMusic    = {0};
 Wave  GoldenWav      = {0};
 f32*  GoldenSamples  = NULL;
+
+char ExportMessage[512]  = {0};
+f32  ExportMessageElapsed = 0.0f;
 
 i32 Scaled(i32 DesignPixels)
 {
@@ -211,9 +216,7 @@ const char* IntroAttribution = "Carl Sagan, Murmurs of Earth (1978)";
 
 #define SAMPLES_FACTOR (1.0f/(60.0f))
 
-// TODO: export to jpeg
 // TODO: add descriptions to almost all images
-// TODO: fix crash when the music is finished/reached the end. loop back to beginning instead
 
 // names referenced from: 
 //    https://science.nasa.gov/mission/voyager/golden-record-contents/images/
@@ -874,7 +877,7 @@ void DrawShortcutMenu(Font TitleFont, Font RowFont, f32 EscapeHeld, i32 CurrentI
 
     // the hold-to-quit progress doubles as the prompt telling you it exists
     i32 FooterY = PanelY + PanelHeight - PanelPadding - MenuFontSize;
-    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    C-R REPLAY INTRO    C-LEFT/C-RIGHT WAVEFORMS    LEFT/RIGHT STEP IMAGES";
+    const char* FooterText = "TAP ESC TO CLOSE    HOLD ESC TO QUIT    C-F FULLSCREEN    C-R REPLAY INTRO    C-E EXPORT PNG    C-LEFT/C-RIGHT WAVEFORMS    LEFT/RIGHT STEP IMAGES";
     DrawTextEx(RowFont, FooterText,
                (Vector2){GetScreenWidth()*0.5f - MeasureTextEx(RowFont, FooterText, MenuFontSize, FontSpacing).x*0.5f, FooterY},
                MenuFontSize, FontSpacing, GRAY);
@@ -1110,6 +1113,20 @@ void SetWindowIconFromFile(const char* FileName)
 }
 #endif
 
+// a decode step reads up to two scan lines past the cursor, so the decoders stop short of the last sample
+u32 GetLastDecodableSample(void)
+{
+    u32 SamplesPerLine = (u32)((f32)GoldenWav.sampleRate * SAMPLES_FACTOR);
+    u32 Guard          = SamplesPerLine * 4;
+
+    if (GoldenWav.frameCount <= Guard)
+    {
+        return 0;
+    }
+
+    return GoldenWav.frameCount - Guard;
+}
+
 void RecordPlayer_Update(f32* Samples, RecordPlayer* Player)
 {
     u32 SamplesPerLine = GoldenWav.sampleRate * SAMPLES_FACTOR;
@@ -1140,6 +1157,217 @@ void RecordPlayer_Update(f32* Samples, RecordPlayer* Player)
 
     f32 RevealDelta = bPaused ? 0.0f : GetFrameTime();
     UpdateTextReveal(&Player->RevealState, Player->ChannelIndex, Player->MetaData.ColorChannel, RevealDelta);
+}
+
+bool IsNextColorPass(i32 Index, i32 NextIndex, bool bLeftChannel)
+{
+    ImageMetaData This = bLeftChannel ? ImageMappings[Index].LeftImage     : ImageMappings[Index].RightImage;
+    ImageMetaData Next = bLeftChannel ? ImageMappings[NextIndex].LeftImage : ImageMappings[NextIndex].RightImage;
+
+    if (This.Name == NULL || Next.Name == NULL || !TextIsEqual(This.Name, Next.Name))
+    {
+        return false;
+    }
+
+    return (This.ColorChannel == Red   && Next.ColorChannel == Green) || (This.ColorChannel == Green && Next.ColorChannel == Blue);
+}
+
+bool DecodeWholeImage(i32 MappingIndex, bool bLeftChannel, Image* OutImage)
+{
+    if (MappingIndex < 0)
+    {
+        return false;
+    }
+
+    u32 NumMappings    = sizeof(ImageMappings) / sizeof(ImageMappings[0]);
+    u32 SamplesPerLine = (u32)((f32)GoldenWav.sampleRate * SAMPLES_FACTOR);
+    u32 LastSample     = GetLastDecodableSample();
+
+    i32 FirstPass = MappingIndex;
+    while (FirstPass > 0 && IsNextColorPass(FirstPass-1, FirstPass, bLeftChannel))
+    {
+        FirstPass--;
+    }
+
+    i32 LastPass = MappingIndex;
+    while (LastPass < (i32)NumMappings-1 && IsNextColorPass(LastPass, LastPass+1, bLeftChannel))
+    {
+        LastPass++;
+    }
+
+    for (i32 Index = FirstPass; Index <= LastPass; Index++)
+    {
+        ImageMetaData MetaData = bLeftChannel ? ImageMappings[Index].LeftImage : ImageMappings[Index].RightImage;
+
+        RecordPlayer Decoder =
+        {
+            .ImageOffset  = MetaData.SampleOffset,
+            .Cursor       = MetaData.SampleOffset,
+            .ScanImage    = OutImage,
+            .bLeftChannel = bLeftChannel
+        };
+
+        while (Decoder.ScanLine < (u32)ImageScanWidth && Decoder.Cursor < LastSample)
+        {
+            f32 Peak = SyncPeak(GoldenSamples, Decoder.Cursor, SamplesPerLine, GoldenWav.channels, bLeftChannel);
+            Decoder.Threshold = Peak / (f32)SamplesPerLine;
+
+            if (!RecordPlayer_DecodeStep(GoldenSamples, GoldenWav, &Decoder, MetaData))
+            {
+                break;
+            }
+
+            Decoder.ScanLine++;
+        }
+    }
+
+    return true;
+}
+
+// picture names carry characters that a file name does not accept on every system
+void CopySanitizedFileName(char* Out, i32 OutSize, const char* Text)
+{
+    i32 Length = (i32)TextLength(Text);
+
+    if (Length > OutSize-1)
+    {
+        Length = OutSize-1;
+    }
+
+    for (i32 i = 0; i < Length; i++)
+    {
+        char Character = Text[i];
+
+        bool bKeep = (Character >= 'a' && Character <= 'z')
+                  || (Character >= 'A' && Character <= 'Z')
+                  || (Character >= '0' && Character <= '9')
+                  ||  Character == '-' || Character == '_' || Character == ' ';
+
+        Out[i] = bKeep ? Character : '_';
+    }
+
+    Out[Length] = '\0';
+}
+
+// an earlier export of the same picture keeps its file, the new one takes the next free number
+bool GetExportFileName(const char* Name, char* Out, i32 OutSize)
+{
+    char SafeName[256] = {0};
+    CopySanitizedFileName(SafeName, sizeof(SafeName), Name);
+
+    for (i32 Attempt = 0; Attempt < 1000; Attempt++)
+    {
+        const char* Candidate = Attempt == 0
+                              ? TextFormat("%s/%s.png", ExportDirectory, SafeName)
+                              : TextFormat("%s/%s %i.png", ExportDirectory, SafeName, Attempt+1);
+
+        if (!FileExists(Candidate))
+        {
+            if ((i32)TextLength(Candidate) >= OutSize)
+            {
+                return false;
+            }
+
+            TextCopy(Out, Candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void SetExportMessage(const char* Text)
+{
+    TextCopy(ExportMessage, Text);
+    ExportMessageElapsed = 0.0f;
+}
+
+// one channel, one png, named after the picture on that channel
+bool ExportChannelImage(i32 MappingIndex, bool bLeftChannel, char* OutFileName, i32 OutSize)
+{
+    if (MappingIndex < 0)
+    {
+        return false;
+    }
+
+    ImageMetaData MetaData = bLeftChannel ? ImageMappings[MappingIndex].LeftImage : ImageMappings[MappingIndex].RightImage;
+
+    if (!GetExportFileName(MetaData.Name ? MetaData.Name : "Unknown", OutFileName, OutSize))
+    {
+        return false;
+    }
+
+    Image Picture = GenImageColor(ImageCanvasScanWidth, ImageCanvasScanHeight, BLACK);
+
+    DecodeWholeImage(MappingIndex, bLeftChannel, &Picture);
+
+    bool bExported = ExportImage(Picture, OutFileName);
+
+    UnloadImage(Picture);
+
+    return bExported;
+}
+
+void ExportChannelImages(void)
+{
+    i32 LeftIndex  = Player_LeftChannel.ChannelIndex;
+    i32 RightIndex = Player_RightChannel.ChannelIndex;
+
+    if (LeftIndex < 0 && RightIndex < 0)
+    {
+        SetExportMessage("NOTHING TO EXPORT YET");
+        return;
+    }
+
+    if (!DirectoryExists(ExportDirectory) && MakeDirectory(ExportDirectory) != 0)
+    {
+        SetExportMessage(TextFormat("EXPORT FAILED, CANNOT MAKE %s", ExportDirectory));
+        return;
+    }
+
+    char LeftFileName[512]  = {0};
+    char RightFileName[512] = {0};
+
+    // the left file is on disk before the right name is picked, so the two never collide
+    bool bLeftDone  = ExportChannelImage(LeftIndex,  true,  LeftFileName,  sizeof(LeftFileName));
+    bool bRightDone = ExportChannelImage(RightIndex, false, RightFileName, sizeof(RightFileName));
+
+    if (bLeftDone && bRightDone)
+    {
+        SetExportMessage(TextFormat("EXPORTED %s AND %s", LeftFileName, RightFileName));
+    }
+    else if (bLeftDone || bRightDone)
+    {
+        SetExportMessage(TextFormat("EXPORTED %s, THE OTHER CHANNEL FAILED", bLeftDone ? LeftFileName : RightFileName));
+    }
+    else
+    {
+        SetExportMessage("EXPORT FAILED");
+    }
+}
+
+void DrawExportMessage(void)
+{
+    static f32 ExportMessageSeconds = 4.0f;
+
+    if (ExportMessage[0] == '\0' || ExportMessageElapsed >= ExportMessageSeconds)
+    {
+        return;
+    }
+
+    // the last second fades the message out instead of dropping it
+    f32 Alpha = ExportMessageSeconds - ExportMessageElapsed;
+    if (Alpha > 1.0f)
+    {
+        Alpha = 1.0f;
+    }
+
+    f32 TextWidth = MeasureTextEx(Fonts.Menu, ExportMessage, (f32)MenuFontSize, FontSpacing).x;
+
+    DrawTextEx(Fonts.Menu, ExportMessage,
+               (Vector2){GetScreenWidth()*0.5f - TextWidth*0.5f,
+                         (f32)(GetScreenHeight() - Scaled(DesignExportMessageMargin))},
+               MenuFontSize, FontSpacing, Fade(WHITE, Alpha));
 }
 
 Rectangle GetChannelImageBounds(RecordPlayer* Player, UILayout Layout)
@@ -1210,7 +1438,7 @@ void Init(void)
     InitAudioDevice();
 }
 
-void ResetRecordPlayer(RecordPlayer* Player)
+void RecordPlayer_Reset(RecordPlayer* Player)
 {
     Player->ImageOffset  = 0;
     Player->Cursor       = 0;
@@ -1234,39 +1462,53 @@ void RestartIntro(void)
 
     StopMusicStream(GoldenMusic);
 
-    ResetRecordPlayer(&Player_LeftChannel);
-    ResetRecordPlayer(&Player_RightChannel);
+    RecordPlayer_Reset(&Player_LeftChannel);
+    RecordPlayer_Reset(&Player_RightChannel);
+}
+
+void RestartTrack(void)
+{
+    SeekMusicStream(GoldenMusic, 0.0f);
+    MusicCursor = 0.0f;
+
+    RecordPlayer_Reset(&Player_LeftChannel);
+    RecordPlayer_Reset(&Player_RightChannel);
 }
 
 // the control chords work in both stages, and they never count as a skip of the intro
 bool UpdateControlChordInput(void)
 {
-    if (!IsKeyDown(KEY_LEFT_CONTROL) && !IsKeyDown(KEY_RIGHT_CONTROL))
+    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
     {
-        return false;
+        if (IsKeyPressed(KEY_F))
+        {
+            ToggleBorderlessWindowed();
+        }
+    
+        if (IsKeyPressed(KEY_R))
+        {
+            RestartIntro();
+        }
+    
+        if (IsKeyPressed(KEY_E) && !bIntroActive)
+        {
+            ExportChannelImages();
+        }
+    
+        if (IsKeyPressed(KEY_LEFT))
+        {
+            Player_LeftChannel.bDrawWaveform = !Player_LeftChannel.bDrawWaveform;
+        }
+    
+        if (IsKeyPressed(KEY_RIGHT))
+        {
+            Player_RightChannel.bDrawWaveform = !Player_RightChannel.bDrawWaveform;
+        }
+
+        return true;
     }
 
-    if (IsKeyPressed(KEY_F))
-    {
-        ToggleBorderlessWindowed();
-    }
-
-    if (IsKeyPressed(KEY_R))
-    {
-        RestartIntro();
-    }
-
-    if (IsKeyPressed(KEY_LEFT))
-    {
-        Player_LeftChannel.bDrawWaveform = !Player_LeftChannel.bDrawWaveform;
-    }
-
-    if (IsKeyPressed(KEY_RIGHT))
-    {
-        Player_RightChannel.bDrawWaveform = !Player_RightChannel.bDrawWaveform;
-    }
-
-    return true;
+    return false;
 }
 
 f32 GetIntroTypingSeconds(void)
@@ -1551,6 +1793,8 @@ void Update(void)
 {
     UpdateLayoutAndFonts();
 
+    ExportMessageElapsed += GetFrameTime();
+
     if (bIntroActive)
     {
         UpdateIntro();
@@ -1565,6 +1809,11 @@ void Update(void)
     UpdateShortcutInput();
 
     MusicCursor = (f32)GetMusicTimePlayed(GoldenMusic) * (f32)GoldenWav.sampleRate;
+
+    if (MusicCursor >= (f32)GetLastDecodableSample())
+    {
+        RestartTrack();
+    }
 
     RecordPlayer_Update(GoldenSamples, &Player_LeftChannel);
     RecordPlayer_Update(GoldenSamples, &Player_RightChannel);
@@ -1635,6 +1884,8 @@ void Draw(void)
     {
         DrawShortcutMenu(Fonts.Title, Fonts.Menu, MenuEscapeHeld, Player_LeftChannel.ChannelIndex);
     }
+
+    DrawExportMessage();
 }
 
 i32 main(void)
