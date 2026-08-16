@@ -305,7 +305,7 @@ ImageMapping ImageMappings[] =
     {.ShiftKey = KEY_V,      .LeftImage.Name = "Flying Insect with Flowers",            .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39157401, .RightImage.SampleOffset = 39177643, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Green, .LeftImage.Source = "Borne on the Wind, Stephen Dalton",     .LeftImage.bPortrait = true, .LeftImage.bPortraitAntiClockwise = true, .LeftImage.Description = "Ichneumonidae", .RightImage.Source = "David Harvey"},
     {.ShiftKey = KEY_B,      .LeftImage.Name = "Diagram of Vertebrate Evolution",       .RightImage.Name = "Sunset with Birds",                         .LeftImage.SampleOffset = 39651843, .RightImage.SampleOffset = 39671543, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Blue,  .LeftImage.Source = "Jon Lomberg",                           .LeftImage.bPortrait = true, .RightImage.Source = "David Harvey", .LeftImage.SourceURL = "https://science.nasa.gov/image-detail/diagram-of-vertebrate-evolution-30993842550-o/"},
     {.ShiftKey = KEY_N,      .LeftImage.Name = "Seashell",                              .RightImage.Name = "String Quartet",                            .LeftImage.SampleOffset = 40149135, .RightImage.SampleOffset = 40171212, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Harry N. Abrams, Inc.",                 .LeftImage.bPortrait = true, .LeftImage.Description = "Xancidae", .RightImage.Source = "Phillips Recordings", .RightImage.Description = "Quartetto Italiano"},
-    {.ShiftKey = KEY_M,      .LeftImage.Name = "Dolphins",                              .RightImage.Name = "Violin with Music Score",                   .LeftImage.SampleOffset = 40702862, .RightImage.SampleOffset = 40670528, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Thomas Nebbia",                         .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Cavatina", .RightImage.SourceURL = "https://science.nasa.gov/image-detail/violin-with-music-score-cavatina-31072637180-o/"},
+    {.ShiftKey = KEY_M,      .LeftImage.Name = "Dolphins",                              .RightImage.Name = "Violin with Music Score",                   .LeftImage.SampleOffset = 40702862, .RightImage.SampleOffset = 40670528, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Thomas Nebbia",                         .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Cavatina", .RightImage.bPortrait = true, .RightImage.bPortraitAntiClockwise = true, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/violin-with-music-score-cavatina-31072637180-o/"},
 };
 
 i32 GetChannelIndexFromSampleOffset(u32 SampleOffset, bool bLeftChannel)
@@ -1300,6 +1300,16 @@ bool ExportChannelImage(i32 MappingIndex, bool bLeftChannel, char* OutFileName, 
     Image Picture = GenImageColor(ImageCanvasScanWidth, ImageCanvasScanHeight, BLACK);
 
     DecodeWholeImage(MappingIndex, bLeftChannel, &Picture);
+
+    if (MetaData.bPortrait)
+    {
+        i32 XOffset = ImageScanHeight/8;
+        ImageCrop(&Picture, (Rectangle){.x = XOffset, .y = 0, .width = ImageScanHeight, .height = ImageScanWidth});
+    }
+    else
+    {
+        ImageCrop(&Picture, (Rectangle){.x = 0, .y = 0, .width = ImageScanWidth, .height = ImageScanHeight});
+    }
 
     bool bExported = ExportImage(Picture, OutFileName);
 
