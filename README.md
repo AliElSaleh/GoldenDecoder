@@ -6,7 +6,7 @@ Watch full decoding video: https://www.youtube.com/watch?v=coN2vCFyXmw
 
 ### Motivation
 I saw many decoders projects out there that didn't meet my high expectations of an interactive low-level cross platform executable that you could run on all the major operating systems natively.
-some were web only, others written in non-C languages, some were confusing to understand and some had jittery images.
+some were web only, others written in non-C languages, some were confusing to understand and/or using external libraries that were doing the audio parsing job for them, and some had jittery images.
 
 Also, this was a fun side project for my brain to work on as I haven't done any programming relating to digital signal processing.
 
