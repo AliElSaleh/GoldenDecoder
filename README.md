@@ -23,3 +23,12 @@ Once you have the binary in your path, just run:
 ```
 riftbuild
 ```
+
+#### Supported Architectures
+- x64
+- arm64
+
+#### Supported Platforms
+- Windows 10 and above
+- Linux (using X11 display server)
+- macOS 11 (Big Sur) and above
