@@ -10,16 +10,13 @@ some were web only, others written in non-C languages, some were confusing to un
 
 Also, this was a fun side project for my brain to work on as I haven't done any programming relating to digital signal processing.
 
-
 <img width="720" height="405" alt="golden-decoder-phys-tree-toad" src="https://github.com/user-attachments/assets/0b451864-ba38-48b5-ab3f-364ca7ef8984" />
 
 <img width="720" height="405" alt="golden-decoder-menu-operations" src="https://github.com/user-attachments/assets/103881ef-93f2-43bb-93b2-96117f2c6bbf" />
 
-
-
 # Building
 
-This project uses my own build system that I created, you can grab the latest release from here https://github.com/AliElSaleh/RiftBuild
+This project uses my own build system that I created (because CMake/Make/Ninja etc. are hot garbage), you can grab the latest release from here https://github.com/AliElSaleh/RiftBuild
 
 Once you have the binary in your path, just run:
 ```
