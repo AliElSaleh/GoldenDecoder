@@ -2,6 +2,8 @@
 
 An interactive application that decodes the audio images that were encoded onto the Golden Record by NASA. This program reads the audio samples each scan-line at a time, to build up a final image, in real time.
 
+Watch full decoding video: https://www.youtube.com/watch?v=coN2vCFyXmw
+
 ### Motivation
 I saw many decoders projects out there that didn't meet my high expectations of an interactive low-level cross platform executable that you could run on all the major operating systems natively.
 some were web only, others written in non-C languages, some were confusing to understand and some had jittery images.
