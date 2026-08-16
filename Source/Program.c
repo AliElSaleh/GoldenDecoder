@@ -24,21 +24,18 @@ const i32 WindowTopMargin         = 60;
 
 const i32 DesignLeftOffset        = 950;
 const i32 DesignCursorGutter      = 130;
-const f32 DesignImageScale        = 1.8f;
+const f32 DesignImageScale        = 1.74f;
 const i32 DesignTitleFontSize     = 65;
 const i32 DesignBodyFontSize      = 20;
 const i32 DesignSmallFontSize     = 18;
 const i32 DesignMenuFontSize      = 20; // 20 is about the practical ceiling, the three columns reach 1659px of the 1920 wide screen
 const i32 DesignMenuTitleFontSize = 30;
 
+const i32 ImageCanvasScanWidth    = 600;
+const i32 ImageCanvasScanHeight   = 550;
+
 const i32 ImageScanWidth          = 600;
-const i32 ImageScanHeight         = 550;
-
-const i32 LandscapeImageScanWidth  = 600;
-const i32 LandscapeImageScanHeight = 430;
-
-const i32 PortraitImageScanWidth   = 600;
-const i32 PortraitImageScanHeight  = 430;
+const i32 ImageScanHeight         = 430;
 
 const f32 RevealCharsPerSecond    = 15.0f;
 
@@ -292,7 +289,7 @@ ImageMapping ImageMappings[] =
     {.ShiftKey = KEY_P,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Golden Gate Bridge",                        .LeftImage.SampleOffset = 32486942, .RightImage.SampleOffset = 32440627, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Ansel Adams", .RightImage.Location = {"San Francisco, California", 37.8199f, -122.4783f}},
     {.ShiftKey = KEY_A,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Train",                                     .LeftImage.SampleOffset = 32978679, .RightImage.SampleOffset = 32945392, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Gordon Gahan", .RightImage.Description = "United Aircraft Corporation Turbotrain"},
     {.ShiftKey = KEY_S,      .LeftImage.Name = "Forest Scene with Mushrooms",           .RightImage.Name = "Airplane in Flight",                        .LeftImage.SampleOffset = 33489509, .RightImage.SampleOffset = 33469402, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Bruce Dale", .LeftImage.bPortrait = true, .RightImage.Source = "Frank Drake", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.031f, .DebounceSamples = 3}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/airplane-in-flight-30634172743-o/"},
-    {.ShiftKey = KEY_D,      .LeftImage.Name = "Leaf (Fragaria)",                       .RightImage.Name = "Airport",                                   .LeftImage.SampleOffset = 34005577, .RightImage.SampleOffset = 33984056, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Arthur Herrick", .RightImage.Source = "George Hunter", .RightImage.Description = "Toronto", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.03f, .DebounceSamples = 3}, .RightImage.Location = {"", 43.6777f, -79.6248f}},
+    {.ShiftKey = KEY_D,      .LeftImage.Name = "Leaf (Fragaria)",                       .RightImage.Name = "Airport",                                   .LeftImage.SampleOffset = 34005577, .RightImage.SampleOffset = 33984056, .LeftImage.ColorChannel = Mono,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Arthur Herrick", .LeftImage.bPortrait = true, .RightImage.Source = "George Hunter", .RightImage.Description = "Toronto", .LeftImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.03f, .DebounceSamples = 3}, .RightImage.Location = {"", 43.6777f, -79.6248f}},
     {.ShiftKey = KEY_F,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Antarctic Expedition",                      .LeftImage.SampleOffset = 34523161, .RightImage.SampleOffset = 34490520, .LeftImage.ColorChannel = Red,   .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "National Geographic; Great Adventures with the National Geographic", .RightImage.Description = "Commonwealth Trans-Antarctic Expedition", .RightImage.OverrideParams = &(ScanTriggerThresholdParams){.FallThreshold = 0.04f, .DebounceSamples = 3}},
     {.ShiftKey = KEY_G,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35015433, .RightImage.SampleOffset = 34999599, .LeftImage.ColorChannel = Green, .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "James Blair", .RightImage.Description = "Westerbork, Netherlands", .RightImage.Location = {"", 52.9145f, 6.6031f}},
     {.ShiftKey = KEY_H,      .LeftImage.Name = "Autumn Fallen Leaves",                  .RightImage.Name = "Radio Telescope",                           .LeftImage.SampleOffset = 35537491, .RightImage.SampleOffset = 35520804, .LeftImage.ColorChannel = Blue,  .RightImage.ColorChannel = Mono,  .LeftImage.Source = "Jodi Cobb", .LeftImage.bPortrait = true, .RightImage.Source = "National Astronomy and Ionosphere Center, Cornell University (NAIC)", .RightImage.Description = "Arecibo", .RightImage.Location = {"", 18.3442f, -66.7528f}, .RightImage.SourceURL = "https://science.nasa.gov/image-detail/radio-telescope-arecibo-31442688195-o/"},
@@ -560,103 +557,114 @@ bool RecordPlayer_DecodeStep(f32* Samples, Wave Wav, RecordPlayer* Player, Image
         f64 ImageStart  = Player->Cursor;
         f64 ImageLen    = NextLineSamplesActual;
 
-        i32 WidthToUse  = ImageMetaData.bPortrait ? PortraitImageScanWidth : LandscapeImageScanWidth;
-        i32 HeightToUse = ImageMetaData.bPortrait ? PortraitImageScanHeight : LandscapeImageScanHeight;
+        i32 XOffset = ImageMetaData.bPortrait ? ImageScanHeight/8 : 0;
 
-        i32 ImageWidth  = WidthToUse;
-        i32 ImageHeight = HeightToUse;
-
-        i32 XOffset = ImageMetaData.bPortrait ? ImageHeight/8 : 0;
-
-        for (i32 y = 0; Player->ScanLine < WidthToUse && y < ImageHeight; y++)
+        if (Player->ScanLine < ImageScanWidth)
         {
-            u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageHeight) * ImageLen;
-            u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageHeight) * ImageLen;
-            if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
-
-            f64 Sum = 0;
-            for (u64 i = SampleIndex0; i < SampleIndex1; i++)
+            for (i32 y = 0; y < ImageScanHeight; y++)
             {
-                Sum += Samples[i * Wav.channels + (Player->bLeftChannel ? 0 : 1)];
-            }
-            f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
-
-            i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
-            if (V < 0)
-            {
-                V = 0;
-            }
-            else if (V > 255)
-            {
-                V = 255;
-            }
-
-            V = 255 - V;
-
-
-            i32 X = Player->ScanLine;
-            i32 Y = y;
-            if (ImageMetaData.bPortrait)
-            {
-                X = XOffset + (ImageMetaData.bPortraitAntiClockwise ? y : (ImageHeight-y));
-                Y = ImageMetaData.bPortraitAntiClockwise ? Player->ScanImage->height-Player->ScanLine : Player->ScanLine;
-
-                for (i32 i = 0; i < XOffset; i++)
+                u64 SampleIndex0 = (u64)ImageStart + ((f64)y     / (f64)ImageScanHeight) * ImageLen;
+                u64 SampleIndex1 = (u64)ImageStart + ((f64)(y+1) / (f64)ImageScanHeight) * ImageLen;
+                if (SampleIndex1 <= SampleIndex0) { SampleIndex1 = SampleIndex0 + 1; }
+    
+                f64 Sum = 0;
+                for (u64 i = SampleIndex0; i < SampleIndex1; i++)
                 {
-                    ImageDrawPixel(Player->ScanImage, i, Y, BLACK);
+                    Sum += Samples[i * Wav.channels + (Player->bLeftChannel ? 0 : 1)];
+                }
+                f64 Avg = Sum/(f64)(SampleIndex1-SampleIndex0);
+    
+                i32 V = (i32)((Avg - Black) / (White - Black) * 255.0);
+                if (V < 0)
+                {
+                    V = 0;
+                }
+                else if (V > 255)
+                {
+                    V = 255;
                 }
     
-                for (i32 i = 0; i < XOffset; i++)
+                V = 255 - V;
+    
+    
+                i32 X = Player->ScanLine;
+                i32 Y = y;
+                if (ImageMetaData.bPortrait)
                 {
-                    ImageDrawPixel(Player->ScanImage, XOffset+ImageHeight+i, Y, BLACK);
-                }
-            }
-            else
-            {
-                for (i32 i = 0; i < Player->ScanImage->height-LandscapeImageScanHeight; i++)
-                {
-                    ImageDrawPixel(Player->ScanImage, Player->ScanLine, LandscapeImageScanHeight+i, BLACK);
-                }
-            }
+                    if (ImageMetaData.bPortraitAntiClockwise)
+                    {
+                        X = XOffset + y;
+                        Y = Player->ScanImage->height-Player->ScanLine;
+                    }
+                    else
+                    {
+                        X = XOffset + (ImageScanHeight-y);
+                        Y = Player->ScanLine;
+                    }
+    
+                    // clamp so its not out of bounds
+                    if (X > Player->ScanImage->width-1)  { X = Player->ScanImage->width-1; }
+                    if (Y > Player->ScanImage->height-1) { Y = Player->ScanImage->height-1; }
+                    if (X < 0) { X = 0; }
+                    if (Y < 0) { Y = 0; }
+    
+                    for (i32 i = 0; i < XOffset; i++)
+                    {
+                        ImageDrawPixel(Player->ScanImage, i, Y, BLACK);
+                    }
         
-            Color CurrentColor = GetImageColor(*Player->ScanImage, X, Y);
-            Color PixelColor = {0};
-            switch (ImageMetaData.ColorChannel)
-            {
-                default:
-                case Mono:
-                {
-                    PixelColor = (Color){ V, V, V, 255 };
+                    for (i32 i = 0; i < Player->ScanImage->width-ImageScanHeight; i++)
+                    {
+                        ImageDrawPixel(Player->ScanImage, XOffset+ImageScanHeight+i, Y, BLACK);
+                    }
                 }
-                break;
-
-                case Red:
+                else
                 {
-                    CurrentColor.r = V;
-                    CurrentColor.g = 0;
-                    CurrentColor.b = 0;
-                    PixelColor = CurrentColor;
+                    for (i32 i = 0; i < Player->ScanImage->height-ImageScanHeight; i++)
+                    {
+                        ImageDrawPixel(Player->ScanImage, Player->ScanLine, ImageScanHeight+i, BLACK);
+                    }
                 }
-                break;
-
-                case Green:
+            
+                Color CurrentColor = GetImageColor(*Player->ScanImage, X, Y);
+                Color PixelColor = {0};
+                switch (ImageMetaData.ColorChannel)
                 {
-                    CurrentColor.g = V;
-                    PixelColor = CurrentColor;
+                    default:
+                    case Mono:
+                    {
+                        PixelColor = (Color){ V, V, V, 255 };
+                    }
+                    break;
+    
+                    case Red:
+                    {
+                        CurrentColor.r = V;
+                        CurrentColor.g = 0;
+                        CurrentColor.b = 0;
+                        PixelColor = CurrentColor;
+                    }
+                    break;
+    
+                    case Green:
+                    {
+                        CurrentColor.g = V;
+                        PixelColor = CurrentColor;
+                    }
+                    break;
+    
+                    case Blue:
+                    {
+                        CurrentColor.b = V;
+                        PixelColor = CurrentColor;
+                    }
+                    break;
                 }
-                break;
-
-                case Blue:
-                {
-                    CurrentColor.b = V;
-                    PixelColor = CurrentColor;
-                }
-                break;
+    
+                PixelColor.a = 255;
+    
+                ImageDrawPixel(Player->ScanImage, X, Y, PixelColor);
             }
-
-            PixelColor.a = 255;
-
-            ImageDrawPixel(Player->ScanImage, X, Y, PixelColor);
         }
 
         Player->Cursor = NewOffset;
@@ -897,7 +905,7 @@ void DrawChannelWaveform(f32* Samples, f32 MusicCursor, bool bLeftChannel,
 
     u32 Draw_StartPointX = BaseLocationX;
     u32 Draw_EndPointX   = BaseLocationX + (ScanWidth  * ImageScale - Scaled(30));
-    u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + Scaled(65));
+    u32 Draw_MidPointY   = BaseLocationY + (ScanHeight * ImageScale + Scaled(85));
 
     u32 Window      = SamplesPerLine * NumScanlinesToDraw;
     u32 CursorStart = MusicCursor - Window;
@@ -1138,7 +1146,7 @@ Rectangle GetChannelImageBounds(RecordPlayer* Player, UILayout Layout)
 {
     i32 ImageX = Player->bLeftChannel ? Layout.BaseLocationX : Layout.BaseLocationX + LeftOffset;
 
-    f32 Width = LandscapeImageScanWidth * ImageScale;
+    f32 Width = ImageScanWidth * ImageScale;
 
     if (Player->bLeftChannel && Width > (f32)LeftOffset)
     {
@@ -1148,7 +1156,7 @@ Rectangle GetChannelImageBounds(RecordPlayer* Player, UILayout Layout)
     return (Rectangle){(f32)ImageX,
                        (f32)Layout.BaseLocationY,
                        Width,
-                       LandscapeImageScanHeight * ImageScale};
+                       ImageScanHeight * ImageScale};
 }
 
 void RecordPlayer_Draw(RecordPlayer* Player, UILayout Layout)
@@ -1170,7 +1178,7 @@ void RecordPlayer_Draw(RecordPlayer* Player, UILayout Layout)
     {
         DrawChannelWaveform(GoldenSamples, Player->Cursor,
                             Player->bLeftChannel, ImageX, Layout.BaseLocationY,
-                            LandscapeImageScanWidth, LandscapeImageScanHeight);
+                            ImageScanWidth, ImageScanHeight);
     }
 }
 
@@ -1658,10 +1666,10 @@ i32 main(void)
         return 1;
     }
 
-    Image Scan_Left = GenImageColor(ImageScanWidth, ImageScanHeight, BLANK);
+    Image Scan_Left = GenImageColor(ImageCanvasScanWidth, ImageCanvasScanHeight, BLANK);
     Texture2D ScanTexture_Left = LoadTextureFromImage(Scan_Left);
     
-    Image Scan_Right = GenImageColor(ImageScanWidth, ImageScanHeight, BLANK);
+    Image Scan_Right = GenImageColor(ImageCanvasScanWidth, ImageCanvasScanHeight, BLANK);
     Texture2D ScanTexture_Right = LoadTextureFromImage(Scan_Right);
 
     // turn this off to see the raw pixels without any filtering
