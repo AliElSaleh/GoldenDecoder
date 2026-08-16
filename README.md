@@ -23,5 +23,3 @@ Once you have the binary in your path, just run:
 ```
 riftbuild
 ```
-
-otherwise, you can just download the latest binary release
