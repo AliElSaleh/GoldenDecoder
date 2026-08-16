@@ -216,14 +216,12 @@ const char* IntroAttribution = "Carl Sagan, Murmurs of Earth (1978)";
 
 #define SAMPLES_FACTOR (1.0f/(60.0f))
 
-// TODO: add descriptions to almost all images
-
 // names referenced from: 
 //    https://science.nasa.gov/mission/voyager/golden-record-contents/images/
 //    https://en.wikipedia.org/wiki/Contents_of_the_Voyager_Golden_Record
 
 // no published credit exists for The Sun or Heron Island (record 41):
-// both credit cells are blank on Wikipedia and neither has a NASA image-detail page.
+// both credit cells are blank on Wikipedia and neither has a NASA image-detail page. big sad :(
 
 // yes i really did type this by hand
 ImageMapping ImageMappings[] =
