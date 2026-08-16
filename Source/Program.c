@@ -1485,10 +1485,15 @@ void RestartTrack(void)
     RecordPlayer_Reset(&Player_RightChannel);
 }
 
-// the control chords work in both stages, and they never count as a skip of the intro
+bool IsChordModifierDown(void)
+{
+    return IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
+           IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT);
+}
+
 bool UpdateControlChordInput(void)
 {
-    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
+    if (IsChordModifierDown())
     {
         if (IsKeyPressed(KEY_F))
         {
@@ -1505,12 +1510,12 @@ bool UpdateControlChordInput(void)
             ExportChannelImages();
         }
     
-        if (IsKeyPressed(KEY_LEFT))
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_LEFT_BRACKET))
         {
             Player_LeftChannel.bDrawWaveform = !Player_LeftChannel.bDrawWaveform;
         }
-    
-        if (IsKeyPressed(KEY_RIGHT))
+
+        if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_RIGHT_BRACKET))
         {
             Player_RightChannel.bDrawWaveform = !Player_RightChannel.bDrawWaveform;
         }
