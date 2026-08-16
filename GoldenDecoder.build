@@ -57,16 +57,16 @@ if macos
 {
     Apple.Bundle
 
-    BundleApp       $(BuildDirectory)/$(Assembly).app
+    BundleApp       $(BuildDirectory)/$(TitleName).app
     BundleContents  $(BundleApp)/Contents
     BundleResources $(BundleContents)/Resources/Resources
 
     PostBuild
     {
-        Copy Resources/* $(BundleResources)
+        Copy Resources/* "$(BundleResources)"
 
-        Cmd codesign --force --sign - $(BundleApp)
-        Cmd:zip ditto -c -k --sequesterRsrc --keepParent $(BundleApp) $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
+        Cmd codesign --force --sign - "$(BundleApp)"
+        Cmd:zip ditto -c -k --sequesterRsrc --keepParent "$(BundleApp)" $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
     }
 }
 
