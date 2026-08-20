@@ -8,6 +8,7 @@ Description             Decodes the audio images on the Golden Record
 Version                 1.0
 CompanyName             Ali El Saleh
 Copyright               Copyright (c) $CompanyName
+License(generate)       BSD3
 
 IconFile Voyager_Golden_Record
 Icon                   $(IconFile)
