@@ -66,6 +66,7 @@ if macos
     PostBuild
     {
         Copy Resources/* "$(BundleResources)"
+        Copy LICENSE "$(BundleContents)/Resources"
 
         Cmd codesign --force --sign - "$(BundleApp)"
         Cmd:zip ditto -c -k --sequesterRsrc --keepParent "$(BundleApp)" $(BuildDirectory)/$(Assembly)-&Platform-&(cpu.arch)-v$(Version).zip
